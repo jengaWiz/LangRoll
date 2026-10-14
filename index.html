@@ -3,13 +3,255 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LangRoll</title>
+  <title>LangRoll: learn languages while you scroll</title>
+  <meta name="description" content="LangRoll turns real language lessons into a short-form feed. Swipe through 30-second clips, quizzes and stories, and pick up a new language one scroll at a time.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23ff3d7f'/%3E%3Cpath d='M12 9l11 7-11 7z' fill='white'/%3E%3C/svg%3E">
 </head>
 <body>
-  <main>
-    <h1>Hi 👋</h1>
-    <p>Welcome to <strong>LangRoll</strong>.</p>
+  <header class="nav">
+    <a class="logo" href="#top" aria-label="LangRoll home">
+      <span class="logo-mark" aria-hidden="true"></span>LangRoll
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#science">The science</a>
+    </nav>
+    <a class="btn btn-small" href="#download">Get the app</a>
+  </header>
+
+  <main id="top">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="dot"></span> Now in beta on iOS &amp; Android</p>
+        <h1>Doomscroll your way to <span class="grad">fluent.</span></h1>
+        <p class="lede">
+          LangRoll turns proven language lessons into a short-form feed.
+          Vocab, grammar, listening and speaking, chopped into 30-second clips
+          you'll actually want to swipe through.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-store" href="#download">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Download free
+          </a>
+          <a class="btn btn-ghost" href="#how">See how it works</a>
+        </div>
+        <ul class="hero-stats">
+          <li><strong>30s</strong><span>per lesson</span></li>
+          <li><strong>12</strong><span>languages</span></li>
+          <li><strong>0</strong><span>textbooks</span></li>
+        </ul>
+      </div>
+
+      <div class="hero-phone">
+        <div class="blob blob-a" aria-hidden="true"></div>
+        <div class="blob blob-b" aria-hidden="true"></div>
+
+        <div class="phone" role="region" aria-label="Interactive preview of the LangRoll feed. Scroll inside to see more clips.">
+          <div class="phone-notch" aria-hidden="true"></div>
+          <div class="phone-top">
+            <span class="tab active">For you</span>
+            <span class="tab">Spanish</span>
+            <span class="streak" title="Daily streak">🔥 <b id="streak">12</b></span>
+          </div>
+
+          <div class="feed" id="feed" tabindex="0">
+            <!-- Clip 1: vocab -->
+            <article class="clip clip-pink">
+              <span class="clip-tag">🇪🇸 Spanish · Slang</span>
+              <p class="clip-big">¿Qué onda?</p>
+              <p class="clip-sub">"What's up?", the casual greeting you'll hear in Mexico.</p>
+              <p class="clip-hint">Tap 🔊 to hear it from a native speaker</p>
+              <div class="clip-actions">
+                <button class="act like" aria-label="Like"><span>♥</span><small>24k</small></button>
+                <button class="act" aria-label="Play audio"><span>🔊</span><small>Play</small></button>
+                <button class="act save" aria-label="Save to review deck"><span>＋</span><small>Save</small></button>
+              </div>
+            </article>
+
+            <!-- Clip 2: quiz -->
+            <article class="clip clip-violet quiz" data-answer="sur">
+              <span class="clip-tag">🇫🇷 French · Quick quiz</span>
+              <p class="clip-q">Le chat est ___ la table.</p>
+              <p class="clip-sub">The cat is <em>on</em> the table.</p>
+              <div class="options">
+                <button class="opt" data-v="sous">sous</button>
+                <button class="opt" data-v="sur">sur</button>
+                <button class="opt" data-v="dans">dans</button>
+              </div>
+              <p class="quiz-result" aria-live="polite"></p>
+              <div class="clip-actions">
+                <button class="act like" aria-label="Like"><span>♥</span><small>9.1k</small></button>
+                <button class="act save" aria-label="Save to review deck"><span>＋</span><small>Save</small></button>
+              </div>
+            </article>
+
+            <!-- Clip 3: character -->
+            <article class="clip clip-lime">
+              <span class="clip-tag">🇯🇵 Japanese · Kanji</span>
+              <p class="clip-big jp">猫</p>
+              <p class="clip-sub"><b>neko</b> · cat</p>
+              <p class="clip-hint">犭 (animal) + 苗 (sprout). Picture a cat napping in the garden.</p>
+              <div class="clip-actions">
+                <button class="act like" aria-label="Like"><span>♥</span><small>51k</small></button>
+                <button class="act save" aria-label="Save to review deck"><span>＋</span><small>Save</small></button>
+              </div>
+            </article>
+
+            <!-- Clip 4: mini story -->
+            <article class="clip clip-orange">
+              <span class="clip-tag">🇮🇹 Italian · 15-second story</span>
+              <div class="chat">
+                <p class="bubble left">Un caffè, per favore.</p>
+                <p class="bubble right">Al banco o al tavolo?</p>
+                <p class="bubble left">Al banco, grazie!</p>
+              </div>
+              <p class="clip-sub">Ordering at the bar is cheaper in Italy. Now you know how.</p>
+              <div class="clip-actions">
+                <button class="act like" aria-label="Like"><span>♥</span><small>13k</small></button>
+                <button class="act save" aria-label="Save to review deck"><span>＋</span><small>Save</small></button>
+              </div>
+            </article>
+
+            <!-- Clip 5: review -->
+            <article class="clip clip-blue">
+              <span class="clip-tag">🧠 Review · Due today</span>
+              <p class="clip-big">¿Qué onda?</p>
+              <p class="clip-sub">Seen 2 days ago. Still remember it?</p>
+              <div class="options">
+                <button class="opt review" data-v="yes">Got it ✓</button>
+                <button class="opt review" data-v="no">Show me again</button>
+              </div>
+              <p class="quiz-result" aria-live="polite"></p>
+            </article>
+          </div>
+
+          <div class="phone-progress" aria-hidden="true"><span id="progress"></span></div>
+        </div>
+        <p class="phone-caption">↑ Try it: scroll the feed</p>
+      </div>
+    </section>
+
+    <!-- Marquee -->
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee-track">
+        <span>Hola</span><span>Bonjour</span><span>こんにちは</span><span>Ciao</span><span>안녕하세요</span><span>Olá</span><span>Hallo</span><span>你好</span><span>Merhaba</span><span>नमस्ते</span><span>Привет</span><span>مرحبا</span>
+        <span>Hola</span><span>Bonjour</span><span>こんにちは</span><span>Ciao</span><span>안녕하세요</span><span>Olá</span><span>Hallo</span><span>你好</span><span>Merhaba</span><span>नमस्ते</span><span>Привет</span><span>مرحبا</span>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <section class="section" id="how">
+      <p class="kicker">How it works</p>
+      <h2>Your feed is the lesson plan.</h2>
+      <ol class="steps">
+        <li class="step reveal">
+          <span class="step-num">01</span>
+          <h3>Scroll</h3>
+          <p>Swipe through bite-sized clips: words, phrases, grammar tricks and culture moments, all picked for your level.</p>
+        </li>
+        <li class="step reveal">
+          <span class="step-num">02</span>
+          <h3>Tap</h3>
+          <p>Quizzes, fill-in-the-blanks and speak-back prompts are mixed right into the feed. Learning is the engagement.</p>
+        </li>
+        <li class="step reveal">
+          <span class="step-num">03</span>
+          <h3>Remember</h3>
+          <p>Anything you save or miss comes back in your feed at just the right moment, so it sticks for good.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- Features -->
+    <section class="section" id="features">
+      <p class="kicker">Features</p>
+      <h2>Everything a course does.<br>None of the homework vibes.</h2>
+      <div class="bento">
+        <div class="card card-wide reveal">
+          <span class="card-emoji">⚡</span>
+          <h3>30-second micro-lessons</h3>
+          <p>Each clip teaches one thing, clearly. Learn on the bus, in line for coffee, or during the ads.</p>
+        </div>
+        <div class="card reveal">
+          <span class="card-emoji">🎙️</span>
+          <h3>Speak-back clips</h3>
+          <p>Repeat after native speakers and get instant pronunciation feedback.</p>
+        </div>
+        <div class="card reveal">
+          <span class="card-emoji">🧠</span>
+          <h3>Smart review feed</h3>
+          <p>Spaced repetition, built into the algorithm.</p>
+        </div>
+        <div class="card reveal">
+          <span class="card-emoji">🔥</span>
+          <h3>Streaks &amp; duels</h3>
+          <p>Keep your streak alive and challenge friends to quick quiz battles.</p>
+        </div>
+        <div class="card card-wide card-accent reveal">
+          <span class="card-emoji">🌍</span>
+          <h3>Made by native creators</h3>
+          <p>Real accents, real slang, real culture from teachers and creators who grew up speaking the language you're learning.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Science -->
+    <section class="section" id="science">
+      <p class="kicker">The science</p>
+      <h2>Same proven methods. New format.</h2>
+      <p class="section-lede">LangRoll isn't brain rot. Every clip is built on methods language researchers already trust, just delivered the way you already consume content.</p>
+      <div class="compare">
+        <div class="compare-col old reveal">
+          <h3>The old way</h3>
+          <ul>
+            <li>45-minute lessons you keep putting off</li>
+            <li>Flashcard decks you forget to open</li>
+            <li>Textbook dialogues nobody actually says</li>
+            <li>Progress that feels invisible</li>
+          </ul>
+        </div>
+        <div class="compare-col new reveal">
+          <h3>The LangRoll way</h3>
+          <ul>
+            <li><b>Microlearning:</b> short, focused clips</li>
+            <li><b>Spaced repetition:</b> reviews woven into your feed</li>
+            <li><b>Active recall:</b> quick quizzes between clips</li>
+            <li><b>Real input:</b> native speakers, real situations</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Download -->
+    <section class="download" id="download">
+      <div class="download-inner reveal">
+        <h2>Your next scroll could be in Spanish.</h2>
+        <p>Free to download. Five minutes a day is all it takes.</p>
+        <div class="cta-row center">
+          <a class="btn btn-store light" href="#download">
+            <span class="store-label"><small>Download on</small>iOS</span>
+          </a>
+          <a class="btn btn-store light" href="#download">
+            <span class="store-label"><small>Get it on</small>Android</span>
+          </a>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <footer class="footer">
+    <a class="logo" href="#top"><span class="logo-mark" aria-hidden="true"></span>LangRoll</a>
+    <p>Learn a language, one scroll at a time.</p>
+    <p class="fine">© 2026 LangRoll</p>
+  </footer>
+
+  <script src="script.js" defer></script>
 </body>
 </html>
