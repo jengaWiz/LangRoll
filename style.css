@@ -217,6 +217,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   z-index: 1;
   width: min(320px, 100%);
   aspect-ratio: 9 / 19;
+  overflow: hidden; /* keep aspect-ratio from growing to fit the feed */
   border-radius: 46px;
   padding: 12px;
   background: #050408;
