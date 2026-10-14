@@ -1,18 +1,26 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-aura="red">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LangRoll: learn languages while you scroll</title>
-  <meta name="description" content="LangRoll turns real language lessons into a short-form feed. Swipe through 30-second clips, quizzes and stories, and pick up a new language one scroll at a time.">
+  <meta name="description" content="LangRoll turns real language lessons into a short-form feed. Swipe through 30-second clips, quizzes, speak-backs and duels, and pick up a new language one scroll at a time.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=3">
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=4">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23e8473b'/%3E%3Cpath d='M12 9l11 7-11 7z' fill='white'/%3E%3C/svg%3E">
 </head>
 <body>
-  <div class="glow" aria-hidden="true"><span class="glow-red"></span><span class="glow-peach"></span><span class="glow-blue"></span></div>
+  <!-- Living background: three gradient bodies that drift, recolor per section and lean toward the cursor -->
+  <div class="aura" aria-hidden="true">
+    <span class="aura-blob aura-a"></span>
+    <span class="aura-blob aura-b"></span>
+    <span class="aura-blob aura-c"></span>
+    <span class="aura-grain"></span>
+  </div>
+  <div class="cursor-glow" aria-hidden="true"></div>
+
   <header class="nav">
     <a class="logo" href="#top" aria-label="LangRoll home">
       <span class="logo-mark" aria-hidden="true"></span>LangRoll
@@ -26,15 +34,21 @@
   </header>
 
   <main id="top">
-    <!-- Hero -->
-    <section class="hero">
+    <!-- ======================= HERO ======================= -->
+    <section class="hero" data-aura="red">
       <div class="hero-copy">
-        <p class="eyebrow"><span class="dot"></span> Now in beta on iOS &amp; Android</p>
-        <h1>Doomscroll your way to <span class="frame">fluent.<span class="frame-handles" aria-hidden="true"></span></span></h1>
+        <p class="eyebrow"><span class="dot"></span> <b id="live-count">2,418</b> people scrolling right now</p>
+        <h1>
+          Doomscroll<br>your way to
+          <span class="frame">
+            <span class="frame-tag">you, soon</span>
+            fluent.
+            <span class="frame-handles" aria-hidden="true"></span>
+          </span>
+        </h1>
         <p class="lede">
-          LangRoll turns proven language lessons into a short-form feed.
-          Vocab, grammar, listening and speaking, chopped into 30-second clips
-          you'll actually want to swipe through.
+          Real lessons, chopped into 30-second clips. Vocab, grammar, listening
+          and speaking, in a feed you'll actually want to open.
         </p>
         <div class="cta-row">
           <a class="btn btn-store" href="#download">
@@ -44,170 +58,373 @@
           <a class="btn btn-ghost" href="#how">See how it works</a>
         </div>
         <ul class="hero-stats">
-          <li><strong>30s</strong><span>per lesson</span></li>
+          <li><strong>30s</strong><span>per clip</span></li>
           <li><strong>12</strong><span>languages</span></li>
           <li><strong>0</strong><span>textbooks</span></li>
         </ul>
       </div>
 
-      <div class="hero-phone">
-        <div class="blob blob-a" aria-hidden="true"></div>
-        <div class="blob blob-b" aria-hidden="true"></div>
+      <div class="hero-stage">
+        <div class="orb orb-main" aria-hidden="true"></div>
+        <div class="orb orb-blue" aria-hidden="true"></div>
 
-        <div class="phone" role="region" aria-label="Interactive preview of the LangRoll feed. Scroll inside to see more clips.">
+        <!-- floating stickers around the phone -->
+        <div class="float f1" data-depth="2" aria-hidden="true">
+          <span class="float-flag">🇲🇽</span>
+          <b>¿Qué onda?</b>
+          <small>what's up</small>
+        </div>
+        <div class="float f2" data-depth="4" aria-hidden="true">+10 XP</div>
+        <div class="float f3" data-depth="3" aria-hidden="true">🔥 <b>12</b> day streak</div>
+        <div class="float f4" data-depth="5" aria-hidden="true">
+          <b class="jp">猫</b>
+          <small>neko</small>
+        </div>
+        <div class="float f5" data-depth="2" aria-hidden="true">
+          <span class="mini-avatar" style="--a:#5470ff;--b:#8a4dff">Y</span>
+          <span><b>@yuki.jp</b><small>is live</small></span>
+        </div>
+        <div class="float f6" data-depth="6" aria-hidden="true">🎙️ 92% accent</div>
+
+        <!-- ======================= THE PHONE ======================= -->
+        <div class="phone" id="phone" role="region" aria-label="Interactive preview of the LangRoll feed. Scroll inside to move between clips.">
           <div class="phone-notch" aria-hidden="true"></div>
+          <div class="stories" id="stories" aria-hidden="true"></div>
           <div class="phone-top">
+            <span class="tab">Following</span>
             <span class="tab active">For you</span>
-            <span class="tab">Spanish</span>
             <span class="streak" title="Daily streak">🔥 <b id="streak">12</b></span>
           </div>
 
           <div class="feed" id="feed" tabindex="0">
-            <!-- Clip 1: vocab -->
-            <article class="clip clip-red">
-              <span class="clip-tag">🇪🇸 Spanish · Slang</span>
-              <p class="clip-big">¿Qué onda?</p>
-              <p class="clip-sub">"What's up?", the casual greeting you'll hear in Mexico.</p>
-              <p class="clip-hint">Tap 🔊 to hear it from a native speaker</p>
-              <div class="clip-actions">
-                <button class="act like" aria-label="Like"><span>♥</span><small>24k</small></button>
-                <button class="act" aria-label="Play audio"><span>🔊</span><small>Play</small></button>
-                <button class="act save" aria-label="Save to review deck"><span>＋</span><small>Save</small></button>
+
+            <!-- 1 · vocab clip -->
+            <article class="clip clip-red" data-dur="6500" data-kind="vocab">
+              <div class="clip-bg"><span class="glyph">¿?</span></div>
+              <div class="clip-body">
+                <span class="clip-tag">🇲🇽 Spanish · Slang</span>
+                <p class="clip-big">¿Qué onda?</p>
+                <div class="phonetic"><span>keh</span><span class="hit">ON</span><span>dah</span></div>
+                <div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              </div>
+              <div class="clip-meta">
+                <div class="creator"><span class="avatar" style="--a:#ff9a7a;--b:#e8473b">M</span><b>@maria.habla</b><button class="follow">Follow</button></div>
+                <p class="caption">literally "what wave?" but it just means what's up. say it to anyone under 40 in Mexico City 🌊</p>
+                <p class="sound"><i class="eq"><b></b><b></b><b></b><b></b></i> original sound · maria.habla</p>
               </div>
             </article>
 
-            <!-- Clip 2: quiz -->
-            <article class="clip clip-blue quiz" data-answer="sur">
-              <span class="clip-tag">🇫🇷 French · Quick quiz</span>
-              <p class="clip-q">Le chat est ___ la table.</p>
-              <p class="clip-sub">The cat is <em>on</em> the table.</p>
-              <div class="options">
-                <button class="opt" data-v="sous">sous</button>
-                <button class="opt" data-v="sur">sur</button>
-                <button class="opt" data-v="dans">dans</button>
+            <!-- 2 · quiz clip -->
+            <article class="clip clip-blue quiz" data-dur="9000" data-kind="quiz" data-answer="sur">
+              <div class="clip-bg"><span class="glyph">?</span></div>
+              <div class="clip-body">
+                <span class="clip-tag">🇫🇷 French · Quick fire</span>
+                <p class="clip-q">Le chat est ___ la table.</p>
+                <p class="clip-sub">The cat is <em>on</em> the table.</p>
+                <div class="options">
+                  <button class="opt" data-v="sous">sous</button>
+                  <button class="opt" data-v="sur">sur</button>
+                  <button class="opt" data-v="dans">dans</button>
+                </div>
+                <p class="quiz-result" aria-live="polite"></p>
               </div>
-              <p class="quiz-result" aria-live="polite"></p>
-              <div class="clip-actions">
-                <button class="act like" aria-label="Like"><span>♥</span><small>9.1k</small></button>
-                <button class="act save" aria-label="Save to review deck"><span>＋</span><small>Save</small></button>
-              </div>
-            </article>
-
-            <!-- Clip 3: character -->
-            <article class="clip clip-peach">
-              <span class="clip-tag">🇯🇵 Japanese · Kanji</span>
-              <p class="clip-big jp">猫</p>
-              <p class="clip-sub"><b>neko</b> · cat</p>
-              <p class="clip-hint">犭 (animal) + 苗 (sprout). Picture a cat napping in the garden.</p>
-              <div class="clip-actions">
-                <button class="act like" aria-label="Like"><span>♥</span><small>51k</small></button>
-                <button class="act save" aria-label="Save to review deck"><span>＋</span><small>Save</small></button>
+              <div class="clip-meta">
+                <div class="creator"><span class="avatar" style="--a:#7d93ff;--b:#3646d6">L</span><b>@louis.fr</b><button class="follow">Follow</button></div>
+                <p class="caption">everyone gets this one wrong the first time. sous = under, sur = on, dans = in 🐈</p>
+                <p class="sound"><i class="eq"><b></b><b></b><b></b><b></b></i> quick fire · louis.fr</p>
               </div>
             </article>
 
-            <!-- Clip 4: mini story -->
-            <article class="clip clip-coral">
-              <span class="clip-tag">🇮🇹 Italian · 15-second story</span>
-              <div class="chat">
-                <p class="bubble left">Un caffè, per favore.</p>
-                <p class="bubble right">Al banco o al tavolo?</p>
-                <p class="bubble left">Al banco, grazie!</p>
+            <!-- 3 · speak-back clip -->
+            <article class="clip clip-coral speak" data-dur="9000" data-kind="speak">
+              <div class="clip-bg"><span class="glyph">☕</span></div>
+              <div class="clip-body">
+                <span class="clip-tag">🇮🇹 Italian · Your turn</span>
+                <p class="clip-sub">Repeat after Giulia</p>
+                <p class="clip-big speak-line">Un caffè,<br>per favore.</p>
+                <button class="mic" aria-label="Tap to speak"><span class="mic-ring"></span>🎙️</button>
+                <p class="mic-hint">tap the mic and say it</p>
+                <div class="score" aria-live="polite">
+                  <span class="score-ring"><b>92</b><small>%</small></span>
+                  <span class="score-text">Great accent!<br><small>native speakers understood you</small></span>
+                  <button class="again">Try again</button>
+                </div>
               </div>
-              <p class="clip-sub">Ordering at the bar is cheaper in Italy. Now you know how.</p>
-              <div class="clip-actions">
-                <button class="act like" aria-label="Like"><span>♥</span><small>13k</small></button>
-                <button class="act save" aria-label="Save to review deck"><span>＋</span><small>Save</small></button>
+              <div class="clip-meta">
+                <div class="creator"><span class="avatar" style="--a:#f9ab90;--b:#e3604a">G</span><b>@giulia.caffe</b><button class="follow">Follow</button></div>
+                <p class="caption">ordering at the bar is cheaper than sitting down. now you can ☕</p>
+                <p class="sound"><i class="eq"><b></b><b></b><b></b><b></b></i> speak-back · giulia.caffe</p>
               </div>
             </article>
 
-            <!-- Clip 5: review -->
-            <article class="clip clip-ink">
-              <span class="clip-tag">🧠 Review · Due today</span>
-              <p class="clip-big">¿Qué onda?</p>
-              <p class="clip-sub">Seen 2 days ago. Still remember it?</p>
-              <div class="options">
-                <button class="opt review" data-v="yes">Got it ✓</button>
-                <button class="opt review" data-v="no">Show me again</button>
+            <!-- 4 · flip card clip -->
+            <article class="clip clip-peach flipcard" data-dur="7000" data-kind="flip">
+              <div class="clip-bg"><span class="glyph">猫</span></div>
+              <div class="clip-body">
+                <span class="clip-tag">🇯🇵 Japanese · Kanji</span>
+                <button class="flip" aria-label="Flip the card">
+                  <span class="face front">
+                    <b class="jp">猫</b>
+                    <small>tap to flip</small>
+                  </span>
+                  <span class="face back">
+                    <b>neko</b>
+                    <span>cat</span>
+                    <small>犭 animal + 苗 sprout<br>a cat napping in the garden</small>
+                  </span>
+                </button>
               </div>
-              <p class="quiz-result" aria-live="polite"></p>
+              <div class="clip-meta">
+                <div class="creator"><span class="avatar" style="--a:#5470ff;--b:#8a4dff">Y</span><b>@yuki.jp</b><button class="follow">Follow</button></div>
+                <p class="caption">the little story trick makes kanji stick. try drawing it once 🐈‍⬛</p>
+                <p class="sound"><i class="eq"><b></b><b></b><b></b><b></b></i> kanji stories · yuki.jp</p>
+              </div>
             </article>
+
+            <!-- 5 · duel clip -->
+            <article class="clip clip-ink duel" data-dur="8000" data-kind="duel">
+              <div class="clip-bg"><span class="glyph">⚡</span></div>
+              <div class="clip-body">
+                <span class="clip-tag">⚡ Duel · Spanish numbers</span>
+                <p class="clip-q">10 questions. Fastest wins.</p>
+                <div class="racers">
+                  <div class="racer you">
+                    <span class="avatar" style="--a:#ff9a7a;--b:#e8473b">You</span>
+                    <span class="bar"><i></i></span>
+                    <b class="pct">0</b>
+                  </div>
+                  <div class="racer them">
+                    <span class="avatar" style="--a:#7d93ff;--b:#3646d6">P</span>
+                    <span class="bar"><i></i></span>
+                    <b class="pct">0</b>
+                  </div>
+                </div>
+                <p class="duel-result" aria-live="polite"></p>
+              </div>
+              <div class="clip-meta">
+                <div class="creator"><span class="avatar" style="--a:#7d93ff;--b:#3646d6">P</span><b>@priya.learns</b><button class="follow">Friend</button></div>
+                <p class="caption">rematch? you got lucky last time 😤</p>
+                <p class="sound"><i class="eq"><b></b><b></b><b></b><b></b></i> duel mode</p>
+              </div>
+            </article>
+
+            <!-- 6 · review clip -->
+            <article class="clip clip-violet review" data-dur="7000" data-kind="review">
+              <div class="clip-bg"><span class="glyph">🧠</span></div>
+              <div class="clip-body">
+                <span class="clip-tag">🧠 Review · Due today</span>
+                <p class="clip-sub">You saw this 2 days ago</p>
+                <p class="clip-big">¿Qué onda?</p>
+                <div class="options">
+                  <button class="opt review-opt" data-v="yes">Still got it ✓</button>
+                  <button class="opt review-opt" data-v="no">Show me again</button>
+                </div>
+                <p class="quiz-result" aria-live="polite"></p>
+              </div>
+              <div class="clip-meta">
+                <div class="creator"><span class="avatar" style="--a:#c6b3ff;--b:#8a4dff">LR</span><b>LangRoll</b></div>
+                <p class="caption">the feed brings things back right before you'd forget them. that's the whole trick.</p>
+                <p class="sound"><i class="eq"><b></b><b></b><b></b><b></b></i> spaced repetition</p>
+              </div>
+            </article>
+
           </div>
 
-          <div class="phone-progress" aria-hidden="true"><span id="progress"></span></div>
+          <!-- right-hand action rail, shared across clips -->
+          <div class="rail">
+            <button class="act like" aria-label="Like" aria-pressed="false"><span>♥</span><small id="like-count">24k</small></button>
+            <button class="act" aria-label="Comments"><span>💬</span><small>312</small></button>
+            <button class="act save" aria-label="Save to review deck" aria-pressed="false"><span>🔖</span><small>Save</small></button>
+            <button class="act" aria-label="Share"><span>↗</span><small>Share</small></button>
+          </div>
+          <div class="big-heart" aria-hidden="true">♥</div>
+          <div class="toast" id="toast" aria-live="polite"></div>
         </div>
-        <p class="phone-caption">↑ Try it: scroll the feed</p>
+        <p class="phone-caption">scroll the feed · tap things · double-tap to like</p>
       </div>
     </section>
 
-    <!-- Marquee -->
-    <div class="marquee" aria-hidden="true">
-      <div class="marquee-track">
-        <span>Hola</span><span>Bonjour</span><span>こんにちは</span><span>Ciao</span><span>안녕하세요</span><span>Olá</span><span>Hallo</span><span>你好</span><span>Merhaba</span><span>नमस्ते</span><span>Привет</span><span>مرحبا</span>
-        <span>Hola</span><span>Bonjour</span><span>こんにちは</span><span>Ciao</span><span>안녕하세요</span><span>Olá</span><span>Hallo</span><span>你好</span><span>Merhaba</span><span>नमस्ते</span><span>Привет</span><span>مرحبا</span>
+    <!-- ======================= REEL STRIP ======================= -->
+    <section class="reel" data-aura="coral" aria-label="A sample of clips on the feed">
+      <p class="reel-label"><span class="dot"></span> On the feed right now</p>
+      <div class="reel-track">
+        <div class="reel-set">
+          <div class="mini mini-red"><span>🇪🇸 slang</span><b>¡Qué guay!</b><small>that's cool</small></div>
+          <div class="mini mini-blue"><span>🇫🇷 quiz</span><b>tu / vous?</b><small>when to be polite</small></div>
+          <div class="mini mini-peach"><span>🇰🇷 hangul</span><b>사랑</b><small>sarang · love</small></div>
+          <div class="mini mini-ink"><span>🇩🇪 story</span><b>Noch ein Bier?</b><small>at the Biergarten</small></div>
+          <div class="mini mini-violet"><span>🇧🇷 speak</span><b>Tudo bem?</b><small>say it back</small></div>
+          <div class="mini mini-coral"><span>🇯🇵 kanji</span><b class="jp">雨</b><small>ame · rain</small></div>
+          <div class="mini mini-blue"><span>🇮🇹 gesture</span><b>🤌</b><small>what it actually means</small></div>
+          <div class="mini mini-red"><span>🇹🇷 numbers</span><b>bir, iki, üç</b><small>1 2 3 duel</small></div>
+        </div>
+        <div class="reel-set" aria-hidden="true">
+          <div class="mini mini-red"><span>🇪🇸 slang</span><b>¡Qué guay!</b><small>that's cool</small></div>
+          <div class="mini mini-blue"><span>🇫🇷 quiz</span><b>tu / vous?</b><small>when to be polite</small></div>
+          <div class="mini mini-peach"><span>🇰🇷 hangul</span><b>사랑</b><small>sarang · love</small></div>
+          <div class="mini mini-ink"><span>🇩🇪 story</span><b>Noch ein Bier?</b><small>at the Biergarten</small></div>
+          <div class="mini mini-violet"><span>🇧🇷 speak</span><b>Tudo bem?</b><small>say it back</small></div>
+          <div class="mini mini-coral"><span>🇯🇵 kanji</span><b class="jp">雨</b><small>ame · rain</small></div>
+          <div class="mini mini-blue"><span>🇮🇹 gesture</span><b>🤌</b><small>what it actually means</small></div>
+          <div class="mini mini-red"><span>🇹🇷 numbers</span><b>bir, iki, üç</b><small>1 2 3 duel</small></div>
+        </div>
       </div>
-    </div>
-
-    <!-- How it works -->
-    <section class="section" id="how">
-      <p class="kicker">How it works</p>
-      <h2>Your feed is the lesson plan.</h2>
-      <ol class="steps">
-        <li class="step reveal">
-          <span class="step-num">01</span>
-          <h3>Scroll</h3>
-          <p>Swipe through bite-sized clips: words, phrases, grammar tricks and culture moments, all picked for your level.</p>
-        </li>
-        <li class="step reveal">
-          <span class="step-num">02</span>
-          <h3>Tap</h3>
-          <p>Quizzes, fill-in-the-blanks and speak-back prompts are mixed right into the feed. Learning is the engagement.</p>
-        </li>
-        <li class="step reveal">
-          <span class="step-num">03</span>
-          <h3>Remember</h3>
-          <p>Anything you save or miss comes back in your feed at just the right moment, so it sticks for good.</p>
-        </li>
-      </ol>
     </section>
 
-    <!-- Features -->
-    <section class="section" id="features">
+    <!-- ======================= HOW IT WORKS (scroll-telling) ======================= -->
+    <section class="how" id="how" data-aura="blue">
+      <div class="how-head">
+        <p class="kicker">How it works</p>
+        <h2>Your feed is the lesson plan.</h2>
+      </div>
+      <div class="how-grid">
+        <div class="how-sticky">
+          <div class="stage" id="stage" data-panel="scroll" aria-hidden="true">
+            <!-- panel: scroll -->
+            <div class="panel p-scroll">
+              <div class="deck">
+                <div class="deck-card dc3"><span>🇩🇪</span><b>Doch!</b><small>the word English is missing</small></div>
+                <div class="deck-card dc2"><span>🇰🇷</span><b>맛있어요</b><small>it's delicious</small></div>
+                <div class="deck-card dc1"><span>🇪🇸</span><b>¡Qué guay!</b><small>that's cool</small></div>
+              </div>
+              <span class="swipe-hint">↑ swipe</span>
+            </div>
+            <!-- panel: tap -->
+            <div class="panel p-tap">
+              <div class="tap-card">
+                <small>🇫🇷 Quick fire</small>
+                <b>Je ___ faim.</b>
+                <div class="tap-opts">
+                  <span>suis</span><span class="target">ai</span><span>fais</span>
+                </div>
+                <span class="fingertip"></span>
+                <span class="xp-pop">+10 XP</span>
+                <i class="cf c1"></i><i class="cf c2"></i><i class="cf c3"></i><i class="cf c4"></i><i class="cf c5"></i><i class="cf c6"></i>
+              </div>
+            </div>
+            <!-- panel: remember -->
+            <div class="panel p-remember">
+              <svg class="curve" viewBox="0 0 320 170" aria-hidden="true">
+                <defs>
+                  <linearGradient id="cg" x1="0" x2="1"><stop offset="0" stop-color="#e8473b"/><stop offset="1" stop-color="#5470ff"/></linearGradient>
+                </defs>
+                <path class="curve-fade" d="M10 30 C 60 120, 120 150, 310 160" />
+                <path class="curve-line" d="M10 30 C 40 90, 60 110, 70 115 C 75 60, 90 40, 100 36 C 125 70, 140 85, 150 90 C 158 50, 175 36, 185 32 C 215 50, 240 58, 255 60 C 265 40, 285 30, 310 28" />
+                <g class="curve-dots">
+                  <circle cx="70" cy="115" r="6"/><circle cx="150" cy="90" r="6"/><circle cx="255" cy="60" r="6"/>
+                </g>
+                <g class="curve-labels">
+                  <text x="70" y="140">1 day</text><text x="150" y="115">4 days</text><text x="255" y="85">2 weeks</text>
+                </g>
+              </svg>
+              <div class="mem-card">
+                <span class="avatar" style="--a:#c6b3ff;--b:#8a4dff">🧠</span>
+                <span><b>¿Qué onda?</b><small>back in your feed in 6 days</small></span>
+                <em>97%</em>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <ol class="how-steps">
+          <li class="step" data-panel="scroll">
+            <span class="step-num">01</span>
+            <h3>Scroll</h3>
+            <p>Open the app and you're already learning. Clips are picked for your level and your interests: slang, food, football, K-dramas, whatever you'd watch anyway.</p>
+          </li>
+          <li class="step" data-panel="tap">
+            <span class="step-num">02</span>
+            <h3>Tap</h3>
+            <p>Every few clips the feed asks something back. Fill the blank, pick the word, say it out loud. Thirty seconds, a little dopamine, one thing locked in.</p>
+          </li>
+          <li class="step" data-panel="remember">
+            <span class="step-num">03</span>
+            <h3>Remember</h3>
+            <p>Anything you save or miss returns right before you'd forget it. Spaced repetition, but it feels like your feed just <em>gets</em> you.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ======================= STATEMENT + DOUBLE MARQUEE ======================= -->
+    <section class="statement" data-aura="peach">
+      <h2 class="statement-text reveal">
+        Five minutes.<br>
+        <span class="frame small">Every</span> single day.<br>
+        <span class="grad-word">In your feed.</span>
+      </h2>
+      <div class="band" aria-hidden="true">
+        <div class="band-row">
+          <div class="band-track">
+            <span>Hola</span><span>Bonjour</span><span>こんにちは</span><span>Ciao</span><span>안녕하세요</span><span>Olá</span><span>Hallo</span><span>你好</span><span>Merhaba</span><span>नमस्ते</span><span>Привет</span><span>مرحبا</span>
+            <span>Hola</span><span>Bonjour</span><span>こんにちは</span><span>Ciao</span><span>안녕하세요</span><span>Olá</span><span>Hallo</span><span>你好</span><span>Merhaba</span><span>नमस्ते</span><span>Привет</span><span>مرحبا</span>
+          </div>
+        </div>
+        <div class="band-row reverse">
+          <div class="band-track">
+            <span>gracias</span><span>merci</span><span>ありがとう</span><span>grazie</span><span>감사합니다</span><span>obrigado</span><span>danke</span><span>谢谢</span><span>teşekkürler</span><span>धन्यवाद</span><span>спасибо</span><span>شكرا</span>
+            <span>gracias</span><span>merci</span><span>ありがとう</span><span>grazie</span><span>감사합니다</span><span>obrigado</span><span>danke</span><span>谢谢</span><span>teşekkürler</span><span>धन्यवाद</span><span>спасибо</span><span>شكرا</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= FEATURES ======================= -->
+    <section class="section features" id="features" data-aura="violet">
       <p class="kicker">Features</p>
       <h2>Everything a course does.<br>None of the homework vibes.</h2>
       <div class="bento">
         <div class="card card-wide reveal">
-          <span class="card-emoji">⚡</span>
+          <div class="card-demo timer-demo" aria-hidden="true">
+            <svg viewBox="0 0 80 80"><circle class="t-bg" cx="40" cy="40" r="34"/><circle class="t-fg" cx="40" cy="40" r="34"/></svg>
+            <b>0:30</b>
+          </div>
           <h3>30-second micro-lessons</h3>
-          <p>Each clip teaches one thing, clearly. Learn on the bus, in line for coffee, or during the ads.</p>
+          <p>One idea per clip, explained once, properly. Learn on the bus, in the queue, during the ad break.</p>
         </div>
         <div class="card reveal">
-          <span class="card-emoji">🎙️</span>
+          <div class="card-demo wave-demo" aria-hidden="true">
+            <div class="wave live"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <em>92%</em>
+          </div>
           <h3>Speak-back clips</h3>
-          <p>Repeat after native speakers and get instant pronunciation feedback.</p>
+          <p>Repeat after native speakers and get a score on the spot.</p>
         </div>
         <div class="card reveal">
-          <span class="card-emoji">🧠</span>
+          <div class="card-demo dots-demo" aria-hidden="true">
+            <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="today"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
           <h3>Smart review feed</h3>
-          <p>Spaced repetition, built into the algorithm.</p>
+          <p>Spaced repetition, baked into the algorithm. Nothing to schedule.</p>
         </div>
         <div class="card card-wide reveal">
-          <span class="card-emoji">🔥</span>
+          <div class="card-demo race-demo" aria-hidden="true">
+            <span class="race-row"><i class="avatar" style="--a:#ff9a7a;--b:#e8473b">You</i><span class="bar"><b class="you"></b></span></span>
+            <span class="race-row"><i class="avatar" style="--a:#7d93ff;--b:#3646d6">P</i><span class="bar"><b class="them"></b></span></span>
+          </div>
           <h3>Streaks &amp; duels</h3>
-          <p>Keep your streak alive and challenge friends to quick quiz battles.</p>
+          <p>Keep the flame alive and challenge friends to ten-question quick-fire duels.</p>
         </div>
-        <div class="card card-wide card-accent reveal">
-          <span class="card-emoji">🌍</span>
+        <div class="card card-full card-accent reveal">
+          <div class="avatars" aria-hidden="true">
+            <span class="avatar" style="--a:#ff9a7a;--b:#e8473b">M</span>
+            <span class="avatar" style="--a:#7d93ff;--b:#3646d6">L</span>
+            <span class="avatar" style="--a:#f9ab90;--b:#e3604a">G</span>
+            <span class="avatar" style="--a:#c6b3ff;--b:#8a4dff">Y</span>
+            <span class="avatar more">+2k</span>
+          </div>
           <h3>Made by native creators</h3>
-          <p>Real accents, real slang, real culture from teachers and creators who grew up speaking the language you're learning.</p>
+          <p>Real accents, real slang, real culture, from teachers and creators who grew up speaking the language you're learning. Not a robot voice in sight.</p>
         </div>
+        <span class="sticker" aria-hidden="true">No textbooks.<br>Ever.</span>
       </div>
     </section>
 
-    <!-- Science -->
-    <section class="section" id="science">
+    <!-- ======================= SCIENCE ======================= -->
+    <section class="section science" id="science" data-aura="blue">
       <p class="kicker">The science</p>
-      <h2>Same proven methods. New format.</h2>
-      <p class="section-lede">LangRoll isn't brain rot. Every clip is built on methods language researchers already trust, just delivered the way you already consume content.</p>
+      <h2>Same proven methods.<br>New format.</h2>
+      <p class="section-lede">LangRoll isn't brain rot. Every clip is built on methods language researchers already trust, delivered the way you already consume content.</p>
       <div class="compare">
         <div class="compare-col old reveal">
           <h3>The old way</h3>
@@ -230,18 +447,15 @@
       </div>
     </section>
 
-    <!-- Download -->
-    <section class="download" id="download">
+    <!-- ======================= DOWNLOAD ======================= -->
+    <section class="download" id="download" data-aura="red">
+      <div class="download-orb" aria-hidden="true"><span></span></div>
       <div class="download-inner reveal">
-        <h2>Your next scroll could be in Spanish.</h2>
+        <h2>Your next scroll<br>could be in Spanish.</h2>
         <p>Free to download. Five minutes a day is all it takes.</p>
         <div class="cta-row center">
-          <a class="btn btn-store light" href="#download">
-            <span class="store-label"><small>Download on</small>iOS</span>
-          </a>
-          <a class="btn btn-store light" href="#download">
-            <span class="store-label"><small>Get it on</small>Android</span>
-          </a>
+          <a class="btn btn-store light" href="#download"><span class="store-label"><small>Download on</small>iOS</span></a>
+          <a class="btn btn-store light" href="#download"><span class="store-label"><small>Get it on</small>Android</span></a>
         </div>
       </div>
     </section>
@@ -253,6 +467,6 @@
     <p class="fine">© 2026 LangRoll</p>
   </footer>
 
-  <script src="script.js?v=3" defer></script>
+  <script src="script.js?v=4" defer></script>
 </body>
 </html>
