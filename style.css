@@ -576,6 +576,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .card:hover { transform: translateY(-4px); background: rgba(255, 255, 255, 0.85); }
 .card-wide { grid-column: span 2; }
+.card-accent { grid-column: 1 / -1; }
 .card-accent {
   border-color: transparent;
   background:
