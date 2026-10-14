@@ -7,11 +7,12 @@
   <meta name="description" content="LangRoll turns real language lessons into a short-form feed. Swipe through 30-second clips, quizzes and stories, and pick up a new language one scroll at a time.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23ff3d7f'/%3E%3Cpath d='M12 9l11 7-11 7z' fill='white'/%3E%3C/svg%3E">
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23e8473b'/%3E%3Cpath d='M12 9l11 7-11 7z' fill='white'/%3E%3C/svg%3E">
 </head>
 <body>
+  <div class="glow" aria-hidden="true"><span class="glow-red"></span><span class="glow-peach"></span><span class="glow-blue"></span></div>
   <header class="nav">
     <a class="logo" href="#top" aria-label="LangRoll home">
       <span class="logo-mark" aria-hidden="true"></span>LangRoll
@@ -29,7 +30,7 @@
     <section class="hero">
       <div class="hero-copy">
         <p class="eyebrow"><span class="dot"></span> Now in beta on iOS &amp; Android</p>
-        <h1>Doomscroll your way to <span class="grad">fluent.</span></h1>
+        <h1>Doomscroll your way to <span class="frame">fluent.<span class="frame-handles" aria-hidden="true"></span></span></h1>
         <p class="lede">
           LangRoll turns proven language lessons into a short-form feed.
           Vocab, grammar, listening and speaking, chopped into 30-second clips
@@ -63,7 +64,7 @@
 
           <div class="feed" id="feed" tabindex="0">
             <!-- Clip 1: vocab -->
-            <article class="clip clip-pink">
+            <article class="clip clip-red">
               <span class="clip-tag">🇪🇸 Spanish · Slang</span>
               <p class="clip-big">¿Qué onda?</p>
               <p class="clip-sub">"What's up?", the casual greeting you'll hear in Mexico.</p>
@@ -76,7 +77,7 @@
             </article>
 
             <!-- Clip 2: quiz -->
-            <article class="clip clip-violet quiz" data-answer="sur">
+            <article class="clip clip-blue quiz" data-answer="sur">
               <span class="clip-tag">🇫🇷 French · Quick quiz</span>
               <p class="clip-q">Le chat est ___ la table.</p>
               <p class="clip-sub">The cat is <em>on</em> the table.</p>
@@ -93,7 +94,7 @@
             </article>
 
             <!-- Clip 3: character -->
-            <article class="clip clip-lime">
+            <article class="clip clip-peach">
               <span class="clip-tag">🇯🇵 Japanese · Kanji</span>
               <p class="clip-big jp">猫</p>
               <p class="clip-sub"><b>neko</b> · cat</p>
@@ -105,7 +106,7 @@
             </article>
 
             <!-- Clip 4: mini story -->
-            <article class="clip clip-orange">
+            <article class="clip clip-coral">
               <span class="clip-tag">🇮🇹 Italian · 15-second story</span>
               <div class="chat">
                 <p class="bubble left">Un caffè, per favore.</p>
@@ -120,7 +121,7 @@
             </article>
 
             <!-- Clip 5: review -->
-            <article class="clip clip-blue">
+            <article class="clip clip-ink">
               <span class="clip-tag">🧠 Review · Due today</span>
               <p class="clip-big">¿Qué onda?</p>
               <p class="clip-sub">Seen 2 days ago. Still remember it?</p>
@@ -252,6 +253,6 @@
     <p class="fine">© 2026 LangRoll</p>
   </footer>
 
-  <script src="script.js?v=2" defer></script>
+  <script src="script.js?v=3" defer></script>
 </body>
 </html>
