@@ -11,6 +11,10 @@ export default [
       sourceType: "script",
       globals: globals.browser,
     },
+    rules: {
+      // `catch (e) { /* ignore */ }` is used on purpose around storage and browser APIs
+      "no-unused-vars": ["error", { caughtErrors: "none" }],
+    },
   },
   {
     // The app loads content.js, srs.js and app.js as plain <script> tags that share
@@ -18,7 +22,7 @@ export default [
     files: ["app/**/*.js"],
     rules: {
       "no-undef": "off",
-      "no-unused-vars": ["error", { vars: "local" }],
+      "no-unused-vars": ["error", { vars: "local", caughtErrors: "none" }],
     },
   },
   {
