@@ -75,4 +75,66 @@ test.describe("app", () => {
     await expect(page.locator("#me-screen")).toBeVisible();
     expect(problems).toEqual([]);
   });
+
+  test("flip cards show the word before the answer", async ({ page }) => {
+    await page.goto("/app/");
+    await onboard(page);
+    const card = await scrollToKind(page, "flip");
+    const visible = (face) => card.locator(face).evaluate((el) => getComputedStyle(el).visibility);
+    expect(await visible(".front")).toBe("visible");
+    expect(await visible(".back")).toBe("hidden");
+    await card.locator(".flip-card").click();
+    await expect.poll(() => visible(".back")).toBe("visible");
+    await expect.poll(() => visible(".front")).toBe("hidden");
+  });
+
+  test.describe("on a 4-inch phone", () => {
+    test.use({ viewport: { width: 320, height: 568 } });
+
+    test("every clip kind fits above its caption", async ({ page }) => {
+      await page.goto("/app/");
+      await onboard(page);
+      const seen = new Set();
+      for (let i = 0; i < 20 && seen.size < 5; i++) {
+        await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.children[i].offsetTop, behavior: "instant" }), i);
+        const clip = page.locator(`#feed > :nth-child(${i + 1})`);
+        await expect(clip).toHaveClass(/\bactive\b/);
+        const { kind, overlap } = await clip.evaluate(async (el) => {
+          // content slides up as a clip becomes active; measure where it settles
+          for (let moving; (moving = el.getAnimations({ subtree: true }).filter((a) => a instanceof CSSTransition)).length;) {
+            await Promise.all(moving.map((a) => a.finished.catch(() => {})));
+          }
+          const meta = el.querySelector(".clip-meta").getBoundingClientRect();
+          const bottoms = [...el.querySelectorAll(".clip-body *")].map((c) => c.getBoundingClientRect()).filter((r) => r.height).map((r) => r.bottom);
+          return { kind: el.dataset.kind, overlap: Math.max(...bottoms) - meta.top };
+        });
+        seen.add(kind);
+        expect(overlap, `${kind} clip runs into its caption`).toBeLessThanOrEqual(1);
+      }
+      expect(seen.size, "saw every clip kind").toBe(5);
+    });
+  });
 });
+
+async function onboard(page) {
+  await page.locator("#lang-grid button").first().click();
+  await page.locator("#goal-row button").first().click();
+  await page.locator("#start").click();
+  await expect(page.locator("#feed .clip.active")).toHaveCount(1);
+}
+
+// Scroll the feed until a clip of this kind is active (the feed is shuffled, so keep loading).
+async function scrollToKind(page, kind) {
+  for (let n = 0; n < 12; n++) {
+    const i = await page.locator("#feed").evaluate((f, kind) => [...f.children].findIndex((c) => c.dataset.kind === kind), kind);
+    const target = i >= 0 ? i : await page.locator("#feed").evaluate((f) => f.children.length - 1);
+    await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.children[i].offsetTop, behavior: "instant" }), target);
+    if (i >= 0) {
+      const clip = page.locator(`#feed .clip.active[data-kind="${kind}"]`);
+      await expect(clip).toHaveCount(1);
+      return clip;
+    }
+    await page.waitForTimeout(200);
+  }
+  throw new Error(`no ${kind} clip in the feed`);
+}
