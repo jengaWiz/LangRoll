@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LangRoll</title>
+  <meta name="description" content="Learn a language one scroll at a time: 30-second clips, quizzes, speak-backs, duels and spaced review.">
+  <meta name="theme-color" content="#0d0b0c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LangRoll">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css?v=4">
+</head>
+<body>
+  <div class="app">
+
+    <!-- ======================= ONBOARDING ======================= -->
+    <section class="screen onboard" id="onboard" hidden>
+      <div class="onboard-inner">
+        <a class="logo" href="../"><span class="logo-mark" aria-hidden="true"></span>LangRoll</a>
+        <h1>What do you want to<br><span class="grad-word">scroll in?</span></h1>
+        <div class="lang-grid" id="lang-grid"></div>
+        <h2>Daily goal</h2>
+        <div class="goal-row" id="goal-row"></div>
+        <button class="btn" id="start" disabled>Start scrolling</button>
+      </div>
+    </section>
+
+    <!-- ======================= FEED ======================= -->
+    <section class="screen feed-screen" id="feed-screen" hidden>
+      <div class="hud">
+        <span class="pill streak-pill" id="streak-pill" title="Daily streak">🔥 <b id="streak">0</b></span>
+        <nav class="top-tabs" aria-label="Feed">
+          <button class="tab" data-mode="review">Review <i id="review-count"></i></button>
+          <button class="tab active" data-mode="foryou">For you</button>
+        </nav>
+        <span class="pill xp-pill" title="XP today"><b id="xp-today">0</b> XP<span class="goal-track"><i id="goal-bar"></i></span></span>
+      </div>
+
+      <div class="feed" id="feed" tabindex="0" aria-label="Lesson feed. Scroll to move between clips."></div>
+
+      <div class="rail" id="rail">
+        <button class="act like" aria-label="Like" aria-pressed="false"><span>♥</span><small>Like</small></button>
+        <button class="act save" aria-label="Save to review" aria-pressed="false"><span>🔖</span><small>Save</small></button>
+        <button class="act listen" aria-label="Listen"><span>🔊</span><small>Listen</small></button>
+        <button class="act share" aria-label="Share"><span>↗</span><small>Share</small></button>
+      </div>
+      <div class="big-heart" id="big-heart" aria-hidden="true">♥</div>
+    </section>
+
+    <!-- ======================= DECK ======================= -->
+    <section class="screen page deck-screen" id="deck-screen" hidden>
+      <h1>Your deck</h1>
+      <div class="stat-row" id="deck-stats"></div>
+      <button class="btn" id="deck-review">Review</button>
+      <ul class="deck-list" id="deck-list"></ul>
+    </section>
+
+    <!-- ======================= PROFILE ======================= -->
+    <section class="screen page me-screen" id="me-screen" hidden>
+      <h1>You</h1>
+      <div class="goal-card">
+        <div class="goal-ring" id="goal-ring"><b>0</b><small>/ 60 XP</small></div>
+        <div>
+          <p class="kicker">Today</p>
+          <p class="goal-copy">Hit your daily goal to keep the streak alive.</p>
+        </div>
+      </div>
+      <div class="stat-grid" id="me-stats"></div>
+      <ul class="settings">
+        <li><span>Learning <b id="me-lang"></b></span><button class="link" id="change-lang">Change</button></li>
+        <li><label for="sound-toggle">Auto-play pronunciation</label><input type="checkbox" class="switch" id="sound-toggle"></li>
+        <li id="install-row" hidden><span id="install-hint">Add LangRoll to your home screen</span><button class="link" id="install">Install</button></li>
+        <li><a class="link" href="../">About LangRoll</a></li>
+        <li><button class="link danger" id="reset">Reset progress</button></li>
+      </ul>
+    </section>
+
+    <!-- ======================= TAB BAR ======================= -->
+    <nav class="tabbar" id="tabbar" aria-label="App" hidden>
+      <button data-screen="feed" class="active"><span>▶</span>Feed</button>
+      <button data-screen="deck"><span>🧠</span>Deck</button>
+      <button data-screen="me"><span>☺</span>You</button>
+    </nav>
+
+    <div class="toast" id="toast" aria-live="polite"></div>
+  </div>
+
+  <script src="content.js?v=4"></script>
+  <script src="srs.js?v=4"></script>
+  <script src="app.js?v=4"></script>
+</body>
+</html>
