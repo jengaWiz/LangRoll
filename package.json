@@ -9,8 +9,9 @@
     "lint:css": "stylelint \"**/*.css\"",
     "lint:html": "html-validate \"**/*.html\"",
     "check:assets": "node scripts/check-assets.mjs",
+    "check:qr": "node scripts/make-qr.mjs --check",
     "test:smoke": "playwright test",
-    "check": "npm run lint && npm run check:assets && npm run test:smoke",
+    "check": "npm run lint && npm run check:assets && npm run check:qr && npm run test:smoke",
     "serve": "node scripts/serve.mjs",
     "qr": "node scripts/make-qr.mjs"
   },

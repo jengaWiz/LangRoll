@@ -27,6 +27,8 @@ jobs:
       - run: npm run lint:js
       - run: npm run lint:css
       - run: npm run lint:html
+      - name: QR code matches the app URL
+        run: npm run check:qr
 
   assets:
     name: Asset links & cache versions
