@@ -1,0 +1,123 @@
+/* Presenter slide: one screen, readable from the back of a room, QR as large as the screen allows. */
+:root {
+  --bg: #fff7f3;
+  --ink: #0d0b0c;
+  --muted: #5f5658;
+  --red: #e8473b;
+  --coral: #f08a6c;
+  --peach: #f9cdbb;
+  --blue: #5470ff;
+  --violet: #8a4dff;
+  --display: "Inter Tight", "Helvetica Neue", Arial, sans-serif;
+  --body: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* the same warm blurred bodies as the landing page, kept away from the code so they never reduce contrast */
+.aura { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+.blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.75; animation: drift 18s ease-in-out infinite alternate; }
+.blob.a { width: 60vw; height: 60vw; left: -18vw; top: -22vw; background: var(--red); }
+.blob.b { width: 45vw; height: 45vw; left: 18vw; bottom: -26vw; background: var(--coral); animation-delay: -6s; }
+.blob.c { width: 28vw; height: 28vw; right: -6vw; top: -8vw; background: var(--blue); opacity: 0.45; animation-delay: -12s; }
+@keyframes drift { to { transform: translate(4vw, 3vw) scale(1.08); } }
+
+.stage {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 5vw;
+  height: 100%;
+  padding: 6vh 6vw;
+}
+
+.logo { display: flex; align-items: center; gap: 0.5em; margin: 0 0 4vh; font-family: var(--display); font-size: clamp(1.2rem, 2.2vw, 2rem); font-weight: 900; }
+.logo-mark { position: relative; width: 1.3em; height: 1.3em; border-radius: 0.4em; background: radial-gradient(circle at 30% 30%, var(--coral), var(--red) 70%); }
+.logo-mark::after {
+  content: "";
+  position: absolute;
+  left: 0.48em;
+  top: 0.34em;
+  border-left: 0.48em solid #fff;
+  border-top: 0.31em solid transparent;
+  border-bottom: 0.31em solid transparent;
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(2.4rem, 6vw, 6.5rem);
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  word-spacing: 0.06em;
+}
+.grad { background: linear-gradient(90deg, var(--red), var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+.steps { display: grid; gap: 1.6vh; margin: 5vh 0 0; padding: 0; list-style: none; font-size: clamp(1.1rem, 2vw, 2rem); font-weight: 600; }
+.steps li { display: flex; align-items: center; gap: 0.7em; }
+.steps b {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.8em;
+  height: 1.8em;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--display);
+  font-size: 0.8em;
+}
+
+.url { margin: 5vh 0 0; color: var(--muted); font-size: clamp(1rem, 1.6vw, 1.6rem); font-weight: 500; }
+.url b { color: var(--ink); font-weight: 600; white-space: nowrap; }
+.fine { margin: 1vh 0 0; color: var(--muted); font-size: clamp(0.9rem, 1.2vw, 1.2rem); }
+
+/* the code: plain white card with a violet selection frame, sized off the shorter side of the screen */
+.qr {
+  position: relative;
+  margin: 0;
+  padding: 2.2vmin;
+  border-radius: 3vmin;
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--violet), 0 40px 90px -30px rgba(120, 30, 20, 0.45);
+  text-align: center;
+}
+.qr img { display: block; width: min(72vh, 44vw); height: auto; image-rendering: pixelated; }
+.qr figcaption { margin-top: 1.4vmin; font-family: var(--display); font-size: clamp(1rem, 2vw, 1.8rem); font-weight: 800; }
+
+.hint {
+  position: fixed;
+  right: 18px;
+  bottom: 14px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  transition: opacity 0.4s ease;
+}
+.hint kbd { padding: 1px 6px; border: 1px solid currentColor; border-radius: 5px; font-family: inherit; }
+:fullscreen .hint, .hint.gone { opacity: 0; }
+
+/* portrait screens and phones: stack the code under the copy */
+@media (max-aspect-ratio: 1/1) {
+  body { overflow: auto; }
+  .stage { grid-template-columns: 1fr; justify-items: center; height: auto; min-height: 100%; text-align: center; }
+  .logo { justify-content: center; }
+  .steps { justify-items: center; }
+  .qr img { width: min(80vw, 56vh); }
+  .hint { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob { animation: none; }
+}

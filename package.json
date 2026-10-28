@@ -9,9 +9,11 @@
     "lint:css": "stylelint \"**/*.css\"",
     "lint:html": "html-validate \"**/*.html\"",
     "check:assets": "node scripts/check-assets.mjs",
+    "check:qr": "node scripts/make-qr.mjs --check",
     "test:smoke": "playwright test",
-    "check": "npm run lint && npm run check:assets && npm run test:smoke",
-    "serve": "node scripts/serve.mjs"
+    "check": "npm run lint && npm run check:assets && npm run check:qr && npm run test:smoke",
+    "serve": "node scripts/serve.mjs",
+    "qr": "node scripts/make-qr.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -19,6 +21,7 @@
     "eslint": "^9.39.5",
     "globals": "^15.15.0",
     "html-validate": "^9.7.1",
+    "qrcode": "^1.5.4",
     "stylelint": "^16.26.1",
     "stylelint-config-recommended": "^14.0.1"
   }

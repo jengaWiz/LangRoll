@@ -56,6 +56,19 @@ test.describe("landing page", () => {
   });
 });
 
+test.describe("presenter page", () => {
+  test("shows the QR code and the typed URL", async ({ page }) => {
+    const problems = watchForErrors(page);
+    await page.goto("/present/");
+    const qr = page.locator(".qr img");
+    await expect(qr).toBeVisible();
+    expect(await qr.evaluate((img) => img.complete && img.naturalWidth > 0), "QR image loaded").toBe(true);
+    await expect(page.locator(".url")).toContainText("jengawiz.github.io/LangRoll/app");
+    await expectNoSideScroll(page);
+    expect(problems).toEqual([]);
+  });
+});
+
 test.describe("app", () => {
   test.skip(!existsSync("app/index.html"), "no app/ in this branch");
 
