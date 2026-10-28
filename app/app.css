@@ -860,6 +860,35 @@ li.due .deck-due { color: var(--violet); }
 .tabbar button span { font-size: 1.15rem; line-height: 1; }
 .tabbar button.active { color: #fff; }
 
+/* short phones (4-inch iPhone SE and similar): tighten clips so lessons clear the caption */
+@media (max-height: 620px) {
+  .clip { padding-top: calc(64px + var(--safe-top)); }
+  .clip .sound { display: none; }
+  .caption { -webkit-line-clamp: 1; margin-bottom: 0; }
+  .racers { gap: 8px; margin-top: 12px; }
+  .duel-play { margin-top: 12px; min-height: 116px; }
+  .clip-tag { margin-bottom: 10px; }
+}
+
+/* the feed is built for portrait; a sideways phone gets a nudge instead of a squashed layout */
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  body::after {
+    content: "↻  Turn your phone upright to scroll";
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--ink);
+    color: #fff;
+    font-family: var(--display);
+    font-size: 1.2rem;
+    font-weight: 800;
+    text-align: center;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
