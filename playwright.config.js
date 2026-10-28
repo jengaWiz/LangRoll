@@ -12,6 +12,7 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1400, height: 900 } } },
     { name: "mobile", use: { ...devices["Pixel 7"] } },
+    { name: "iphone", use: { ...devices["iPhone 15 Pro"] } },
   ],
   webServer: {
     command: `node scripts/serve.mjs ${PORT}`,
