@@ -90,11 +90,11 @@ function restart(el, cls) {
 
 const toastEl = $("#toast");
 let toastTimer = 0;
-function toast(msg) {
+function toast(msg, ms = 1800) {
   toastEl.textContent = msg;
   toastEl.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1800);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
 }
 
 function confettiFrom(el, count = 18) {
@@ -225,6 +225,16 @@ if (window.speechSynthesis) {
   speechSynthesis.addEventListener("voiceschanged", loadVoices);
 }
 
+const IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let silentHintShown = false;
+let lastUtterance = null;
+
+// cancel() right before speak() can swallow the next utterance, so only cancel real playback
+function stopSpeech() {
+  if (window.speechSynthesis && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
+}
+
+// `force` means the user tapped a sound button, so failures are worth telling them about
 function speak(text, force = false) {
   if (!window.speechSynthesis || (!state.sound && !force)) return false;
   const code = lang().speech;
@@ -234,12 +244,29 @@ function speak(text, force = false) {
   const norm = (v) => v.lang.replace("_", "-");
   const voice = voices.find((v) => norm(v) === code) || voices.find((v) => norm(v).startsWith(code.slice(0, 2)));
   if (voice) u.voice = voice;
-  speechSynthesis.cancel();
+  if (force) {
+    let started = false;
+    u.onstart = () => { started = true; };
+    u.onerror = (e) => {
+      if (e.error !== "interrupted" && e.error !== "canceled") toast(`🔇 Couldn't play audio (${e.error})`, 3500);
+    };
+    setTimeout(() => { if (!started && lastUtterance === u) toast("🔇 No sound came out. Check the volume, and that silent mode is off", 4000); }, 2500);
+    // iPhones mute web speech when the ring switch is on silent, with no error to catch
+    if (IOS && !silentHintShown) {
+      silentHintShown = true;
+      toast("🔊 No sound? Flip your iPhone's silent switch off", 3500);
+    }
+  }
+  stopSpeech();
+  lastUtterance = u;
   speechSynthesis.speak(u);
+  speechSynthesis.resume(); // Chrome can leave the queue paused after a cancel
   return true;
 }
 
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+let onMicOpen = null;
 
 function listen(code) {
   return new Promise((resolve, reject) => {
@@ -251,7 +278,8 @@ function listen(code) {
     r.onresult = (e) => { heard = Array.from(e.results[0]).map((a) => a.transcript); };
     r.onerror = (e) => reject(e.error);
     r.onend = () => resolve(heard);
-    r.start();
+    r.onaudiostart = () => onMicOpen?.();
+    try { r.start(); } catch (e) { reject(e.name || "start-failed"); return; }
     setTimeout(() => { try { r.stop(); } catch (e) { /* already stopped */ } }, 6000);
   });
 }
@@ -515,7 +543,7 @@ function setActive(el) {
   if (active?.dataset.kind === "duel") resetDuel(active);
   active = el;
   stopClipTimers();
-  if (window.speechSynthesis) speechSynthesis.cancel();
+  stopSpeech();
   $$(".clip", feedEl).forEach((c) => c.classList.toggle("active", c === el));
   $("#feed-screen").dataset.tone = el.classList.contains("clip-peach") ? "light" : "";
   updateRail();
@@ -691,6 +719,18 @@ function showScore(el, clip, score) {
   }
 }
 
+const MIC_ERRORS = {
+  "not-allowed": IOS
+    ? "mic blocked. allow it in Settings › Safari › Microphone, then reload. for now, rate yourself"
+    : "mic blocked. allow it from the 🔒 in the address bar, then reload. for now, rate yourself",
+  "service-not-allowed": IOS
+    ? "speech recognition is off. turn on Settings › Siri › Dictation (or Talk to Siri), then reload. for now, rate yourself"
+    : "speech recognition isn't allowed in this browser. rate yourself instead",
+  "audio-capture": "no microphone found. say it out loud, then rate yourself",
+  "network": "speech recognition needs internet. say it out loud, then rate yourself",
+  "language-not-supported": "this browser can't recognise this language yet. rate yourself instead",
+};
+
 async function speakBack(el, clip, btn) {
   const hint = $(".mic-hint", el);
   if (btn.classList.contains("again")) {
@@ -710,22 +750,32 @@ async function speakBack(el, clip, btn) {
     return;
   }
   el.classList.add("listening");
-  hint.textContent = "listening";
+  // the hint only says "listening" once the mic is really open, so a stuck mic is visible
+  hint.textContent = "starting the mic…";
+  onMicOpen = () => { hint.textContent = "listening… say it now"; };
+  stopSpeech(); // playback and recording fight over the audio session on iOS
   try {
     const heard = await listen(lang().speech);
     el.classList.remove("listening");
-    if (!heard.length) { hint.textContent = "didn't catch that. tap and try again"; return; }
+    if (!heard.length) { hint.textContent = "didn't hear anything. tap the mic and speak up"; return; }
     const score = Math.max(...heard.map((h) => similarity(clip.line, h)));
     hint.textContent = `heard: "${heard[0]}"`;
     showScore(el, clip, score);
   } catch (err) {
     el.classList.remove("listening");
-    if (err === "not-allowed" || err === "service-not-allowed") {
-      hint.textContent = "mic blocked. say it out loud, then rate yourself";
-      $(".self-rate", el).hidden = false;
-    } else {
-      hint.textContent = "didn't catch that. tap and try again";
+    if (err === "no-speech") {
+      hint.textContent = "didn't hear anything. tap the mic and speak up";
+      return;
     }
+    if (err === "aborted") {
+      hint.textContent = "tap the mic and say it";
+      return;
+    }
+    // anything else won't fix itself on a retry: explain it and let them rate themselves
+    hint.textContent = MIC_ERRORS[err] || `the mic didn't work here (${err}). say it out loud, then rate yourself`;
+    $(".self-rate", el).hidden = false;
+  } finally {
+    onMicOpen = null;
   }
 }
 
@@ -858,7 +908,7 @@ function show(name) {
   Object.entries(screens).forEach(([k, el]) => { el.hidden = k !== name; });
   $("#tabbar").hidden = name === "onboard";
   $$("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.screen === name));
-  if (name !== "feed" && window.speechSynthesis) speechSynthesis.cancel();
+  if (name !== "feed") stopSpeech();
   if (name === "deck") renderDeck();
   if (name === "me") renderMe();
   if (name === "feed") renderHud();
