@@ -95,13 +95,15 @@ test.describe("app", () => {
       await page.goto("/app/");
       await onboard(page);
       const seen = new Set();
-      for (let i = 0; i < 14 && seen.size < 5; i++) {
+      for (let i = 0; i < 20 && seen.size < 5; i++) {
         await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.children[i].offsetTop, behavior: "instant" }), i);
-        const clip = page.locator("#feed .clip.active");
-        await expect(clip).toHaveCount(1);
+        const clip = page.locator(`#feed > :nth-child(${i + 1})`);
+        await expect(clip).toHaveClass(/\bactive\b/);
         const { kind, overlap } = await clip.evaluate(async (el) => {
           // content slides up as a clip becomes active; measure where it settles
-          await Promise.all(el.getAnimations({ subtree: true }).filter((a) => a instanceof CSSTransition).map((a) => a.finished));
+          for (let moving; (moving = el.getAnimations({ subtree: true }).filter((a) => a instanceof CSSTransition)).length;) {
+            await Promise.all(moving.map((a) => a.finished.catch(() => {})));
+          }
           const meta = el.querySelector(".clip-meta").getBoundingClientRect();
           const bottoms = [...el.querySelectorAll(".clip-body *")].map((c) => c.getBoundingClientRect()).filter((r) => r.height).map((r) => r.bottom);
           return { kind: el.dataset.kind, overlap: Math.max(...bottoms) - meta.top };
