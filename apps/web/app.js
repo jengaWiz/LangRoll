@@ -268,6 +268,9 @@ const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 let onMicOpen = null;
 
+const LISTEN_MS = 6000; // how long to record once the mic is open
+const MIC_OPEN_MS = 20000; // how long to wait for the mic, including the permission prompt
+
 function listen(code) {
   return new Promise((resolve, reject) => {
     const r = new Recognition();
@@ -275,12 +278,25 @@ function listen(code) {
     r.interimResults = false;
     r.maxAlternatives = 5;
     let heard = [];
+    let timer = null;
+    const stop = () => { try { r.stop(); } catch (e) { /* already stopped */ } };
     r.onresult = (e) => { heard = Array.from(e.results[0]).map((a) => a.transcript); };
-    r.onerror = (e) => reject(e.error);
-    r.onend = () => resolve(heard);
-    r.onaudiostart = () => onMicOpen?.();
+    r.onerror = (e) => { clearTimeout(timer); reject(e.error); };
+    r.onend = () => { clearTimeout(timer); resolve(heard); };
+    // Start the recording window only once the mic is open. Counting from the tap let a
+    // slow "Allow microphone?" prompt (asked on every visit by iOS Safari) use it all up.
+    r.onaudiostart = () => {
+      clearTimeout(timer);
+      timer = setTimeout(stop, LISTEN_MS);
+      onMicOpen?.();
+    };
     try { r.start(); } catch (e) { reject(e.name || "start-failed"); return; }
-    setTimeout(() => { try { r.stop(); } catch (e) { /* already stopped */ } }, 6000);
+    timer = setTimeout(() => {
+      r.onend = null;
+      r.onerror = null;
+      try { r.abort(); } catch (e) { /* already stopped */ }
+      reject("mic-timeout");
+    }, MIC_OPEN_MS);
   });
 }
 
@@ -729,6 +745,7 @@ const MIC_ERRORS = {
   "audio-capture": "no microphone found. say it out loud, then rate yourself",
   "network": "speech recognition needs internet. say it out loud, then rate yourself",
   "language-not-supported": "this browser can't recognise this language yet. rate yourself instead",
+  "mic-timeout": "the mic never opened. allow microphone access and try again, or rate yourself",
 };
 
 async function speakBack(el, clip, btn) {
