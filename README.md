@@ -38,6 +38,9 @@ npm run typecheck
 TEST_DATABASE_URL=postgres://postgres@127.0.0.1:5432/postgres npm run test:integration -w @langroll/api
 ```
 
+Schema changes are SQL files in [`apps/api/migrations/`](apps/api/migrations/); apply them with
+`npm run db:migrate -w @langroll/api` before starting a new version.
+
 The API needs `DATABASE_URL` (a `postgres://` connection string) to start. `GET /health` reports
 liveness and `GET /ready` returns 503 while the database is unreachable.
 

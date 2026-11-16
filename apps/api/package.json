@@ -12,7 +12,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run test/unit",
-    "test:integration": "vitest run test/integration"
+    "test:integration": "vitest run test/integration",
+    "db:migrate": "tsx --env-file-if-exists=.env src/migrate-cli.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
