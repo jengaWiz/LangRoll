@@ -33,7 +33,13 @@ npm install        # once, from the repo root (npm workspaces)
 npm run dev:api    # http://127.0.0.1:8787/health, restarts on save
 npm run test:api   # unit tests (vitest)
 npm run typecheck
+
+# integration tests need a Postgres (17, like Supabase) and fail if none is set
+TEST_DATABASE_URL=postgres://postgres@127.0.0.1:5432/postgres npm run test:integration -w @langroll/api
 ```
+
+The API needs `DATABASE_URL` (a `postgres://` connection string) to start. `GET /health` reports
+liveness and `GET /ready` returns 503 while the database is unreachable.
 
 Settings come from environment variables and are validated at startup in
 [`apps/api/src/config.ts`](apps/api/src/config.ts); a bad value stops the server with a message naming it.
