@@ -19,14 +19,14 @@ export default [
   {
     // The app loads content.js, srs.js and app.js as plain <script> tags that share
     // top-level names, so cross-file globals are expected there.
-    files: ["app/**/*.js"],
+    files: ["apps/web/**/*.js"],
     rules: {
       "no-undef": "off",
       "no-unused-vars": ["error", { vars: "local", caughtErrors: "none" }],
     },
   },
   {
-    files: ["app/sw.js"],
+    files: ["apps/web/sw.js"],
     languageOptions: { globals: globals.serviceworker },
   },
   {

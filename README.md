@@ -18,7 +18,7 @@ Every push to `main` builds `dist/` and publishes it to Pages ([`deploy.yml`](.g
 
 ## The app
 
-`app/` is the LangRoll app itself, an installable PWA (no build step). Run `npm run serve` and open http://127.0.0.1:4173/app/.
+[`apps/web/`](apps/web/) is the LangRoll app itself, an installable PWA (no build step). Run `npm run serve` and open http://127.0.0.1:4173/app/.
 
 Speech recognition and the service worker need `https://` or `localhost`; they won't run from `file://`.
-When you change files in `app/`, bump the `?v=` query strings in `app/index.html` and `VERSION` + `SHELL` in `app/sw.js` so installed copies update.
+When you change files in `apps/web/`, bump the `?v=` query strings in `apps/web/index.html` and `VERSION` + `SHELL` in `apps/web/sw.js` so installed copies update.
