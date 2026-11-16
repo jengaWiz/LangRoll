@@ -41,6 +41,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Build site
+        run: node scripts/build-site.mjs dist
       - name: Check assets
         run: node scripts/check-assets.mjs
         env:

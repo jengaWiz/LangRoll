@@ -13,9 +13,10 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, normalize, relative } from "node:path";
+import { fileForUrl, urlForFile } from "./site-layout.mjs";
 
 const ROOT = process.cwd();
-const SKIP = new Set(["node_modules", ".git", "test-results", "playwright-report"]);
+const SKIP = new Set(["node_modules", ".git", "test-results", "playwright-report", "dist"]);
 const base = process.argv[2] || process.env.BASE_REF || "";
 const errors = [];
 
@@ -39,6 +40,20 @@ function showAtBase(path) {
 
 const isLocal = (url) => !/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(url);
 
+// Resolve a relative URL the way the browser will on the deployed site: against the
+// page's public URL, then back to a repo file through the site layout. Pages that aren't
+// deployed fall back to plain filesystem resolution.
+function resolveRef(fromFile, path) {
+  const pageUrl = urlForFile(fromFile);
+  if (pageUrl) {
+    const target = new URL(path, `http://site${pageUrl}`).pathname;
+    const file = fileForUrl(target);
+    return file ? relative(ROOT, file) : `(nothing deployed at ${target})`;
+  }
+  const file = normalize(join(dirname(fromFile), path));
+  return path === "" || path.endsWith("/") ? join(file, "index.html") : file;
+}
+
 // Local asset references in an HTML string: [{ file, version }]
 function localRefs(htmlPath, html) {
   const refs = [];
@@ -46,9 +61,7 @@ function localRefs(htmlPath, html) {
     if (!isLocal(url)) continue;
     const [pathPart] = url.split("#");
     const [path, query = ""] = pathPart.split("?");
-    let file = normalize(join(dirname(htmlPath), path));
-    if (path === "" || path.endsWith("/")) file = join(file, "index.html");
-    refs.push({ url, file, version: new URLSearchParams(query).get("v") });
+    refs.push({ url, file: resolveRef(htmlPath, path), version: new URLSearchParams(query).get("v") });
   }
   return refs;
 }
@@ -93,7 +106,7 @@ for (const sw of files.filter((f) => f.endsWith("sw.js"))) {
   const precached = [];
   for (const entry of shell) {
     const [path, query = ""] = entry.split("?");
-    const file = normalize(join(dirname(sw), path === "./" ? "index.html" : path));
+    const file = resolveRef(sw, path);
     precached.push(file);
     if (!existsSync(file)) errors.push(`${sw}: precaches "${entry}" but ${file} does not exist`);
     const v = new URLSearchParams(query).get("v");
