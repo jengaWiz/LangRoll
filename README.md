@@ -22,3 +22,18 @@ Every push to `main` builds `dist/` and publishes it to Pages ([`deploy.yml`](.g
 
 Speech recognition and the service worker need `https://` or `localhost`; they won't run from `file://`.
 When you change files in `apps/web/`, bump the `?v=` query strings in `apps/web/index.html` and `VERSION` + `SHELL` in `apps/web/sw.js` so installed copies update.
+
+## The API
+
+[`apps/api/`](apps/api/) is the backend: a TypeScript [Fastify](https://fastify.dev) service that will own
+accounts, progress sync and review scheduling. It needs Node 22.12+.
+
+```
+npm install        # once, from the repo root (npm workspaces)
+npm run dev:api    # http://127.0.0.1:8787/health, restarts on save
+npm run test:api   # unit tests (vitest)
+npm run typecheck
+```
+
+Settings come from environment variables and are validated at startup in
+[`apps/api/src/config.ts`](apps/api/src/config.ts); a bad value stops the server with a message naming it.
