@@ -30,6 +30,21 @@ jobs:
       - name: QR code matches the app URL
         run: npm run check:qr
 
+  api:
+    name: API (typecheck, tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:api
+      - run: npm run build -w @langroll/api
+
   assets:
     name: Asset links & cache versions
     runs-on: ubuntu-latest
