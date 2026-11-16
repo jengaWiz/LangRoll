@@ -99,6 +99,94 @@ test.describe("app", () => {
     await expect.poll(() => visible(".front")).toBe("hidden");
   });
 
+  test.describe("speech", () => {
+    // Headless browsers have no voices or mic, so swap in fakes that record calls and fail on demand.
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => {
+        // micError: fail with this error. promptMs: delay before the mic opens (a permission prompt).
+        // say: transcript to "hear" once the mic is open.
+        const calls = (window.__speech = { spoken: [], idleCancels: 0, micError: null, promptMs: 0, say: null });
+        let speaking = false;
+        const fake = (name, value) => Object.defineProperty(window, name, { value, configurable: true, writable: true });
+        fake("speechSynthesis", {
+          get speaking() { return speaking; },
+          pending: false,
+          getVoices: () => [],
+          addEventListener() {},
+          speak(u) {
+            calls.spoken.push({ text: u.text, lang: u.lang });
+            speaking = true;
+            setTimeout(() => u.onstart?.(), 10);
+            setTimeout(() => { speaking = false; }, 300);
+          },
+          cancel() { if (!speaking) calls.idleCancels++; speaking = false; },
+          resume() {},
+        });
+        fake("SpeechSynthesisUtterance", function (text) { this.text = text; });
+        // Like the real API, stop() ends the session, and stopping before the mic opens hears nothing.
+        function FakeRecognition() {
+          let ended = false;
+          const end = () => { if (!ended) { ended = true; this.onend?.(); } };
+          this.start = () => setTimeout(() => {
+            if (calls.micError) { this.onerror?.({ error: calls.micError }); end(); return; }
+            setTimeout(() => {
+              if (ended) return;
+              this.onaudiostart?.();
+              if (!calls.say) return end();
+              setTimeout(() => {
+                if (ended) return;
+                this.onresult?.({ results: [[{ transcript: calls.say }]] });
+                end();
+              }, 50);
+            }, calls.promptMs);
+          }, 20);
+          this.stop = end;
+          this.abort = () => { ended = true; };
+        }
+        fake("SpeechRecognition", FakeRecognition);
+        fake("webkitSpeechRecognition", FakeRecognition);
+      });
+      await page.goto("/app/");
+      await onboard(page);
+    });
+
+    test("Hear it plays in the clip's language without cancelling first", async ({ page }) => {
+      const clip = await scrollToKind(page, "vocab");
+      await clip.locator(".play").click();
+      const { spoken, idleCancels } = await page.evaluate(() => window.__speech);
+      expect(spoken.at(-1)).toEqual({ text: await clip.locator(".clip-big").textContent(), lang: "es-MX" });
+      expect(idleCancels, "cancel() on an idle engine can swallow the next utterance").toBe(0);
+    });
+
+    test("a blocked mic explains itself and offers self-rating", async ({ page }) => {
+      await page.evaluate(() => { window.__speech.micError = "not-allowed"; });
+      const clip = await scrollToKind(page, "speak");
+      await clip.locator(".mic").click();
+      await expect(clip.locator(".mic-hint")).toContainText("mic blocked");
+      await expect(clip.locator(".self-rate")).toBeVisible();
+      await clip.locator('.self-rate [data-rate="good"]').click();
+      await expect(clip).toHaveClass(/scored/);
+    });
+
+    test("a slow permission prompt doesn't use up the listening time", async ({ page }) => {
+      const clip = await scrollToKind(page, "speak");
+      const line = await clip.locator(".speak-line").textContent();
+      // iOS Safari asks for the mic on every visit; answering it takes longer than the 6s recording window
+      await page.evaluate((say) => Object.assign(window.__speech, { promptMs: 6500, say }), line);
+      await clip.locator(".mic").click();
+      await expect(clip.locator(".mic-hint")).toContainText("heard:", { timeout: 10000 });
+      await expect(clip).toHaveClass(/scored/);
+    });
+
+    test("silence asks to try again instead of failing", async ({ page }) => {
+      await page.evaluate(() => { window.__speech.micError = "no-speech"; });
+      const clip = await scrollToKind(page, "speak");
+      await clip.locator(".mic").click();
+      await expect(clip.locator(".mic-hint")).toContainText("didn't hear anything");
+      await expect(clip.locator(".self-rate")).toBeHidden();
+    });
+  });
+
   test.describe("on a 4-inch phone", () => {
     test.use({ viewport: { width: 320, height: 568 } });
 
