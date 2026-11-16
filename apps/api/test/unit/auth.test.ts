@@ -11,7 +11,16 @@ import type { Db } from "../../src/db.js";
 const SUPABASE_URL = "https://abcd.supabase.co";
 const ISSUER = `${SUPABASE_URL}/auth/v1`;
 const config = loadConfig({ NODE_ENV: "test", DATABASE_URL: "postgres://unused/db", SUPABASE_URL });
-const db: Db = { query: async () => ({ rows: [], rowCount: 0, command: "SELECT", oid: 0, fields: [] }) };
+// Answers the profile lookup with a row for whichever user id it is asked about.
+const db = {
+  query: async (_sql: string, values?: unknown[]) => ({
+    rows: [{ id: values?.[0], learning_lang: null, daily_goal_xp: 60, timezone: "UTC", created_at: new Date(0) }],
+    rowCount: 1,
+    command: "SELECT",
+    oid: 0,
+    fields: [],
+  }),
+} as unknown as Db;
 
 let signingKey: CryptoKey;
 let otherKey: CryptoKey;
@@ -49,7 +58,7 @@ describe("GET /me", () => {
     const id = randomUUID();
     const res = await me(`Bearer ${await token({ sub: id })}`);
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ id, isAnonymous: false });
+    expect(res.json()).toMatchObject({ id, isAnonymous: false });
   });
 
   it("marks guest accounts as anonymous", async () => {

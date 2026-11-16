@@ -62,7 +62,7 @@ export function buildApp(config: Config, deps: Deps): FastifyInstance {
   });
 
   app.register(healthRoutes, { version: config.APP_VERSION, db: deps.db });
-  app.register(meRoutes, { verifyToken: deps.verifyToken });
+  app.register(meRoutes, { verifyToken: deps.verifyToken, db: deps.db });
 
   return app;
 }
