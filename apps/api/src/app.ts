@@ -1,14 +1,20 @@
 import { randomUUID } from "node:crypto";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { Config } from "./config.js";
+import type { Db } from "./db.js";
 import { healthRoutes } from "./routes/health.js";
 
 export interface ApiError {
   error: { code: string; message: string; requestId: string };
 }
 
+export interface Deps {
+  db: Db;
+}
+
 // Builds the app without listening, so tests can drive it with app.inject().
-export function buildApp(config: Config): FastifyInstance {
+// Dependencies are passed in so tests can swap them for fakes.
+export function buildApp(config: Config, deps: Deps): FastifyInstance {
   const app = Fastify({
     logger:
       config.NODE_ENV === "test"
@@ -49,7 +55,7 @@ export function buildApp(config: Config): FastifyInstance {
     return reply.status(404).send(body);
   });
 
-  app.register(healthRoutes, { version: config.APP_VERSION });
+  app.register(healthRoutes, { version: config.APP_VERSION, db: deps.db });
 
   return app;
 }

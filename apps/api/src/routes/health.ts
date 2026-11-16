@@ -1,11 +1,22 @@
 import type { FastifyPluginAsync } from "fastify";
+import type { Db } from "../db.js";
 
-// Liveness: the process is up and serving. A readiness check that also pings the
-// database arrives with the database itself.
-export const healthRoutes: FastifyPluginAsync<{ version: string }> = async (app, opts) => {
+// /health is liveness: the process is up. /ready is readiness: it can reach the database,
+// so a load balancer stops sending traffic while the database is down.
+export const healthRoutes: FastifyPluginAsync<{ version: string; db: Db }> = async (app, opts) => {
   app.get("/health", async () => ({
     status: "ok",
     version: opts.version,
     uptimeSeconds: Math.round(process.uptime()),
   }));
+
+  app.get("/ready", async (request, reply) => {
+    try {
+      await opts.db.query("select 1");
+      return { status: "ready" };
+    } catch (err) {
+      request.log.error({ err }, "database check failed");
+      return reply.status(503).send({ status: "unavailable" });
+    }
+  });
 };
