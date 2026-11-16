@@ -41,7 +41,9 @@ TEST_DATABASE_URL=postgres://postgres@127.0.0.1:5432/postgres npm run test:integ
 Schema changes are SQL files in [`apps/api/migrations/`](apps/api/migrations/); apply them with
 `npm run db:migrate -w @langroll/api` before starting a new version.
 
-The API needs `DATABASE_URL` (a `postgres://` connection string) to start. `GET /health` reports
+The API needs `DATABASE_URL` (a `postgres://` connection string) and `SUPABASE_URL` to start.
+Signed-in routes take a Supabase access token (`Authorization: Bearer …`), checked against the
+project's public signing keys, so the API stores no auth secret. `GET /health` reports
 liveness and `GET /ready` returns 503 while the database is unreachable.
 
 Settings come from environment variables and are validated at startup in
