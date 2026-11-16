@@ -1,15 +1,15 @@
-// Generates the QR code on the presenter page (present/qr.svg) that opens the live app.
+// Generates the QR code on the presenter page (apps/site/present/qr.svg) that opens the live app.
 // The SVG is committed so the page works without a network or a QR library at runtime.
 //
-// Usage: node scripts/make-qr.mjs           regenerate present/qr.svg
+// Usage: node scripts/make-qr.mjs           regenerate apps/site/present/qr.svg
 //        node scripts/make-qr.mjs --check   fail if the SVG or the page's printed URL is stale
 
 import { readFileSync, writeFileSync } from "node:fs";
 import QRCode from "qrcode";
 
 export const APP_URL = "https://jengawiz.github.io/LangRoll/app/";
-const SVG_PATH = "present/qr.svg";
-const PAGE_PATH = "present/index.html";
+const SVG_PATH = "apps/site/present/qr.svg";
+const PAGE_PATH = "apps/site/present/index.html";
 
 const svg = await QRCode.toString(APP_URL, {
   type: "svg",

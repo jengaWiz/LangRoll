@@ -10,9 +10,8 @@ import { cpSync, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { join, normalize, relative, sep } from "node:path";
 
 export const MOUNTS = [
-  { url: "app/", src: "app" },
-  { url: "present/", src: "present" },
-  { url: "", src: ".", include: ["index.html", "style.css", "script.js"] },
+  { url: "app/", src: "apps/web" },
+  { url: "", src: "apps/site" },
 ];
 
 // Map a public URL path ("/app/app.js") to a repo file, or null if nothing is mounted there.
