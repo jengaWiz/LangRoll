@@ -23,10 +23,17 @@ export async function createTestDatabase(): Promise<{ url: string; drop: () => P
   url.pathname = `/${name}`;
   return {
     url: url.toString(),
+    // pool.end() resolves before its sockets finish closing. Wait for them, because forcing the
+    // drop would kill those connections and surface as an unhandled error in the test run.
     drop: async () => {
       const c = new pg.Client({ connectionString: testDatabaseUrl() });
       await c.connect();
-      await c.query(`drop database if exists "${name}" with (force)`);
+      for (let i = 0; i < 50; i++) {
+        const { rows } = await c.query("select count(*)::int as n from pg_stat_activity where datname = $1", [name]);
+        if (rows[0].n === 0) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      await c.query(`drop database if exists "${name}"`);
       await c.end();
     },
   };
