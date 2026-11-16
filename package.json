@@ -3,6 +3,9 @@
   "private": true,
   "description": "LangRoll landing page and app. Static files, no build step; these scripts are for CI checks only.",
   "type": "module",
+  "workspaces": [
+    "apps/api"
+  ],
   "scripts": {
     "lint": "npm run lint:js && npm run lint:css && npm run lint:html",
     "lint:js": "eslint .",
@@ -14,7 +17,10 @@
     "check": "npm run lint && npm run check:assets && npm run check:qr && npm run test:smoke",
     "build": "node scripts/build-site.mjs",
     "serve": "node scripts/serve.mjs",
-    "qr": "node scripts/make-qr.mjs"
+    "qr": "node scripts/make-qr.mjs",
+    "typecheck": "npm run typecheck -w @langroll/api",
+    "test:api": "npm test -w @langroll/api",
+    "dev:api": "npm run dev -w @langroll/api"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -24,6 +30,8 @@
     "html-validate": "^9.7.1",
     "qrcode": "^1.5.4",
     "stylelint": "^16.26.1",
-    "stylelint-config-recommended": "^14.0.1"
+    "stylelint-config-recommended": "^14.0.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.2"
   }
 }

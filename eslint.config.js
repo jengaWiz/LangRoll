@@ -1,8 +1,9 @@
 import js from "@eslint/js";
 import globals from "globals";
+import tseslint from "typescript-eslint";
 
 export default [
-  { ignores: ["node_modules/", "dist/", "test-results/", "playwright-report/"] },
+  { ignores: ["node_modules/", "dist/", "apps/api/dist/", "test-results/", "playwright-report/"] },
   js.configs.recommended,
   {
     files: ["**/*.js"],
@@ -28,6 +29,12 @@ export default [
   {
     files: ["apps/web/sw.js"],
     languageOptions: { globals: globals.serviceworker },
+  },
+  // The API is TypeScript, type-checked by tsc; these add lint rules on top.
+  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["apps/api/**/*.ts"] })),
+  {
+    files: ["apps/api/**/*.ts"],
+    languageOptions: { globals: globals.node },
   },
   {
     files: ["eslint.config.js", "playwright.config.js", "scripts/**/*.mjs", "tests/**/*.js"],
