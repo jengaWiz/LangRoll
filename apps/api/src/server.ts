@@ -1,4 +1,5 @@
 import { buildApp } from "./app.js";
+import { supabaseVerifier } from "./auth.js";
 import { loadConfig } from "./config.js";
 import { createPool } from "./db.js";
 
@@ -11,7 +12,7 @@ try {
 }
 
 const pool = createPool(config.DATABASE_URL);
-const app = buildApp(config, { db: pool });
+const app = buildApp(config, { db: pool, verifyToken: supabaseVerifier(config.SUPABASE_URL) });
 
 // An idle connection dropping (e.g. a database restart) must not crash the process.
 pool.on("error", (err) => app.log.error({ err }, "idle database connection failed"));

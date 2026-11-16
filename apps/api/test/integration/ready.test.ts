@@ -15,9 +15,9 @@ afterEach(async () => {
 });
 
 function start(databaseUrl: string) {
-  const config = loadConfig({ NODE_ENV: "test", DATABASE_URL: databaseUrl });
+  const config = loadConfig({ NODE_ENV: "test", DATABASE_URL: databaseUrl, SUPABASE_URL: "http://127.0.0.1:54321" });
   pool = createPool(config.DATABASE_URL);
-  app = buildApp(config, { db: pool });
+  app = buildApp(config, { db: pool, verifyToken: async () => ({ userId: "unused", isAnonymous: true }) });
   return app;
 }
 

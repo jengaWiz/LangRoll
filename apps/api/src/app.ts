@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { Config } from "./config.js";
+import type { VerifyToken } from "./auth.js";
 import type { Db } from "./db.js";
 import { healthRoutes } from "./routes/health.js";
+import { meRoutes } from "./routes/me.js";
 
 export interface ApiError {
   error: { code: string; message: string; requestId: string };
@@ -10,6 +12,7 @@ export interface ApiError {
 
 export interface Deps {
   db: Db;
+  verifyToken: VerifyToken;
 }
 
 // Builds the app without listening, so tests can drive it with app.inject().
@@ -31,6 +34,8 @@ export function buildApp(config: Config, deps: Deps): FastifyInstance {
     bodyLimit: 64 * 1024,
   });
 
+  app.decorateRequest("caller", null);
+
   // Echo the request ID so a user's bug report can be matched to our logs.
   app.addHook("onSend", async (request, reply) => {
     reply.header("x-request-id", request.id);
@@ -40,6 +45,7 @@ export function buildApp(config: Config, deps: Deps): FastifyInstance {
   app.setErrorHandler((err: { statusCode?: number; code?: string; message: string }, request, reply) => {
     const status = err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500;
     if (status >= 500) request.log.error({ err }, "request failed");
+    if (status === 401) reply.header("www-authenticate", "Bearer"); // RFC 6750
     const body: ApiError = {
       error: {
         code: status >= 500 ? "internal_error" : (err.code ?? "bad_request"),
@@ -56,6 +62,7 @@ export function buildApp(config: Config, deps: Deps): FastifyInstance {
   });
 
   app.register(healthRoutes, { version: config.APP_VERSION, db: deps.db });
+  app.register(meRoutes, { verifyToken: deps.verifyToken });
 
   return app;
 }

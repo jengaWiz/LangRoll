@@ -4,8 +4,16 @@ import { buildApp } from "../../src/app.js";
 import { loadConfig } from "../../src/config.js";
 import type { Db } from "../../src/db.js";
 
-const config = loadConfig({ NODE_ENV: "test", APP_VERSION: "test-sha", DATABASE_URL: "postgres://unused/db" });
+const config = loadConfig({
+  NODE_ENV: "test",
+  APP_VERSION: "test-sha",
+  DATABASE_URL: "postgres://unused/db",
+  SUPABASE_URL: "http://127.0.0.1:54321",
+});
 const db: Db = { query: async () => ({ rows: [], rowCount: 0, command: "SELECT", oid: 0, fields: [] }) };
+const verifyToken = async () => {
+  throw new Error("not used in these tests");
+};
 let app: FastifyInstance;
 
 afterEach(async () => {
@@ -14,14 +22,14 @@ afterEach(async () => {
 
 describe("GET /health", () => {
   it("reports the running version", async () => {
-    app = buildApp(config, { db });
+    app = buildApp(config, { db, verifyToken });
     const res = await app.inject({ method: "GET", url: "/health" });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ status: "ok", version: "test-sha" });
   });
 
   it("returns a server-generated request ID", async () => {
-    app = buildApp(config, { db });
+    app = buildApp(config, { db, verifyToken });
     const res = await app.inject({ method: "GET", url: "/health", headers: { "x-request-id": "forged" } });
     expect(res.headers["x-request-id"]).toMatch(/^[0-9a-f-]{36}$/);
   });
@@ -29,7 +37,7 @@ describe("GET /health", () => {
 
 describe("GET /ready", () => {
   it("is ready when the database answers", async () => {
-    app = buildApp(config, { db });
+    app = buildApp(config, { db, verifyToken });
     const res = await app.inject({ method: "GET", url: "/ready" });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ status: "ready" });
@@ -37,7 +45,7 @@ describe("GET /ready", () => {
 
   it("returns 503 without details when the database is down", async () => {
     const down: Db = { query: async () => { throw new Error("connect ECONNREFUSED 10.0.0.5:5432"); } };
-    app = buildApp(config, { db: down });
+    app = buildApp(config, { db: down, verifyToken });
     const res = await app.inject({ method: "GET", url: "/ready" });
     expect(res.statusCode).toBe(503);
     expect(res.json()).toEqual({ status: "unavailable" });
@@ -46,7 +54,7 @@ describe("GET /ready", () => {
 
 describe("errors", () => {
   it("returns a JSON 404 for unknown routes", async () => {
-    app = buildApp(config, { db });
+    app = buildApp(config, { db, verifyToken });
     const res = await app.inject({ method: "GET", url: "/nope" });
     expect(res.statusCode).toBe(404);
     expect(res.json()).toEqual({
@@ -55,7 +63,7 @@ describe("errors", () => {
   });
 
   it("hides internal error details from the response", async () => {
-    app = buildApp(config, { db });
+    app = buildApp(config, { db, verifyToken });
     app.get("/boom", async () => {
       throw new Error("db password is hunter2");
     });
@@ -66,7 +74,7 @@ describe("errors", () => {
   });
 
   it("passes client errors through with their message", async () => {
-    app = buildApp(config, { db });
+    app = buildApp(config, { db, verifyToken });
     app.post("/echo", async (req) => req.body);
     const res = await app.inject({
       method: "POST",
@@ -79,7 +87,7 @@ describe("errors", () => {
   });
 
   it("rejects oversized bodies", async () => {
-    app = buildApp(config, { db });
+    app = buildApp(config, { db, verifyToken });
     app.post("/echo", async () => ({ ok: true }));
     const res = await app.inject({
       method: "POST",
