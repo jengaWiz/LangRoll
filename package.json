@@ -12,6 +12,7 @@
     "check:qr": "node scripts/make-qr.mjs --check",
     "test:smoke": "playwright test",
     "check": "npm run lint && npm run check:assets && npm run check:qr && npm run test:smoke",
+    "build": "node scripts/build-site.mjs",
     "serve": "node scripts/serve.mjs",
     "qr": "node scripts/make-qr.mjs"
   },
