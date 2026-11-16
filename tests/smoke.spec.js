@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 // Fail on any JS error, console error, or broken same-origin request.
@@ -70,7 +69,6 @@ test.describe("presenter page", () => {
 });
 
 test.describe("app", () => {
-  test.skip(!existsSync("app/index.html"), "no app/ in this branch");
 
   test("onboarding leads to a working feed", async ({ page }) => {
     const problems = watchForErrors(page);
