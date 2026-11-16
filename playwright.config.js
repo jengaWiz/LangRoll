@@ -14,8 +14,9 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"] } },
     { name: "iphone", use: { ...devices["iPhone 15 Pro"] } },
   ],
+  // Test the assembled dist/ tree, i.e. exactly what the deploy workflow publishes.
   webServer: {
-    command: `node scripts/serve.mjs ${PORT}`,
+    command: `node scripts/build-site.mjs && node scripts/serve.mjs ${PORT} dist`,
     url: `http://127.0.0.1:${PORT}/`,
     reuseExistingServer: !process.env.CI,
   },
