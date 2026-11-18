@@ -2,7 +2,11 @@
 // but is decided here, so editing the app can't change them.
 const RULES: Record<string, (payload: Record<string, unknown>) => number> = {
   quiz_answered: (p) => (p.firstTry ? 10 : 5),
-  speech_scored: (p) => ((p.score as number) >= 85 ? 15 : 8),
+  // Like the app: a good attempt earns 15, a fair one 8, and one under 60 nothing.
+  speech_scored: (p) => {
+    const score = p.score as number;
+    return score >= 85 ? 15 : score >= 60 ? 8 : 0;
+  },
   card_flipped: () => 5,
   review_graded: (p) => (p.grade === "again" ? 2 : 5),
   duel_finished: (p) => (p.won ? 25 : 0),

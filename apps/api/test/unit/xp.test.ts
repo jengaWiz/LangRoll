@@ -19,11 +19,17 @@ describe("awardXp", () => {
     expect(xpOf([ev("quiz_answered", { firstTry: false })])).toEqual([5]);
     expect(xpOf([ev("speech_scored", { score: 85 })])).toEqual([15]);
     expect(xpOf([ev("speech_scored", { score: 84 })])).toEqual([8]);
+    expect(xpOf([ev("speech_scored", { score: 60 })])).toEqual([8]);
+    expect(xpOf([ev("speech_scored", { score: 59 })])).toEqual([0]);
     expect(xpOf([ev("card_flipped")])).toEqual([5]);
     expect(xpOf([ev("review_graded", { grade: "good" })])).toEqual([5]);
     expect(xpOf([ev("review_graded", { grade: "again" })])).toEqual([2]);
     expect(xpOf([ev("duel_finished", { won: true })])).toEqual([25]);
     expect(xpOf([ev("duel_finished", { won: false }), ev("clip_viewed"), ev("clip_saved", { saved: true })])).toEqual([0, 0, 0]);
+  });
+
+  it("lets a failed speaking attempt be followed by a scoring one the same day", () => {
+    expect(xpOf([ev("speech_scored", { score: 30 }), ev("speech_scored", { score: 90 })])).toEqual([0, 15]);
   });
 
   it("awards a clip's action once per day, however often it's repeated", () => {
