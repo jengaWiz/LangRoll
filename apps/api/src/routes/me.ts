@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { requireCaller, type VerifyToken } from "../auth.js";
 import type { Db } from "../db.js";
+import { getProgress } from "../progress.js";
 import { ensureProfile, ProfileUpdate, updateProfile } from "../users.js";
 import { parse } from "../validation.js";
 
@@ -13,6 +14,9 @@ export const meRoutes: FastifyPluginAsync<{ verifyToken: VerifyToken; db: Db }> 
     const caller = request.caller!;
     return { ...(await ensureProfile(opts.db, caller.userId)), isAnonymous: caller.isAnonymous };
   });
+
+  // XP and streaks, computed by the server from stored events.
+  app.get("/me/progress", { preHandler: auth }, async (request) => getProgress(opts.db, request.caller!.userId));
 
   app.patch("/me", { preHandler: auth }, async (request) => {
     const caller = request.caller!;
