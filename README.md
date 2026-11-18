@@ -65,3 +65,21 @@ docker run --env-file apps/api/.env -p 8787:8787 langroll-api                # t
 ```
 
 CI builds the image, migrates a real Postgres from it, starts it and checks `/health` and `/ready`.
+
+### Staging (Fly.io)
+
+The API runs at `https://langroll-api-staging.fly.dev` in Fly's `iad` region, next to the Supabase
+database (AWS us-east-1). Config is in [`apps/api/fly.toml`](apps/api/fly.toml). Every merge to `main`
+that touches the API deploys through [`deploy-api.yml`](.github/workflows/deploy-api.yml), and
+migrations run first as Fly's release command.
+
+One-time setup:
+
+1. Install flyctl (`brew install flyctl`), then `fly auth login`.
+2. `fly apps create langroll-api-staging`
+3. Set the database secret yourself. Never paste it into chat or commit it:
+   `fly secrets set -a langroll-api-staging DATABASE_URL='<Supabase → Connect → Session pooler URI>'`
+   Use the **session** pooler (port 5432), not the transaction pooler (6543): migrations rely on a
+   session-level advisory lock.
+4. `fly tokens create deploy -a langroll-api-staging`, and save the token as the GitHub secret `FLY_API_TOKEN`.
+5. Set the GitHub repository variable `FLY_DEPLOY_ENABLED` to `true`.
