@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { requireCaller, type VerifyToken } from "../auth.js";
+import { dueReviews } from "../cards.js";
 import type { Db } from "../db.js";
 import { getProgress } from "../progress.js";
 import { ensureProfile, ProfileUpdate, updateProfile } from "../users.js";
@@ -17,6 +18,13 @@ export const meRoutes: FastifyPluginAsync<{ verifyToken: VerifyToken; db: Db }> 
 
   // XP and streaks, computed by the server from stored events.
   app.get("/me/progress", { preHandler: auth }, async (request) => getProgress(opts.db, request.caller!.userId));
+
+  // Cards due for review in the learner's current language. Empty until they pick one.
+  app.get("/me/reviews", { preHandler: auth }, async (request) => {
+    const profile = await ensureProfile(opts.db, request.caller!.userId);
+    if (!profile.learningLang) return { due: [], dueCount: 0, deckSize: 0 };
+    return dueReviews(opts.db, profile.id, profile.learningLang);
+  });
 
   app.patch("/me", { preHandler: auth }, async (request) => {
     const caller = request.caller!;

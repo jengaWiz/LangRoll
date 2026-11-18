@@ -60,3 +60,38 @@ export async function updateCards(
     ],
   );
 }
+
+export interface DueList {
+  due: { clipId: string; dueAt: string }[];
+  dueCount: number;
+  deckSize: number;
+}
+
+const DUE_LIMIT = 100;
+
+/**
+ * Cards due for review now, oldest first, for one language. Clip ids start with their
+ * language code ("es-v1"), which is how cards are matched to a language until content lives
+ * in the database.
+ */
+export async function dueReviews(db: Db, userId: string, lang: string, now = new Date()): Promise<DueList> {
+  const prefix = `${lang}-`;
+  const [due, counts] = await Promise.all([
+    db.query<{ clip_id: string; due_at: Date }>(
+      `select clip_id, due_at from app.cards
+        where user_id = $1 and starts_with(clip_id, $2) and due_at <= $3
+        order by due_at limit ${DUE_LIMIT}`,
+      [userId, prefix, now],
+    ),
+    db.query<{ due_count: string; deck_size: string }>(
+      `select count(*) filter (where due_at <= $3) as due_count, count(*) as deck_size
+         from app.cards where user_id = $1 and starts_with(clip_id, $2)`,
+      [userId, prefix, now],
+    ),
+  ]);
+  return {
+    due: due.rows.map((r) => ({ clipId: r.clip_id, dueAt: r.due_at.toISOString() })),
+    dueCount: Number(counts.rows[0]!.due_count),
+    deckSize: Number(counts.rows[0]!.deck_size),
+  };
+}
