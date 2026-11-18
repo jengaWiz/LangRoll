@@ -3,7 +3,8 @@ import type { Db } from "./db.js";
 
 // Languages with content in the app. Keep in sync with apps/web/content.js until content moves
 // into the database.
-export const LANGUAGES = ["es", "fr", "it", "ja", "ko", "de"] as const;
+// Launch languages: Spanish, French and Japanese.
+export const LANGUAGES = ["es", "fr", "ja"] as const;
 export const DAILY_GOALS = [30, 60, 100] as const;
 
 const isTimeZone = (tz: string) => {

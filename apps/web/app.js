@@ -53,6 +53,9 @@ function persist() {
 }
 
 const state = load();
+// A language can be retired (the launch keeps es, fr and ja). Anyone who had picked one goes
+// back to language selection instead of the app crashing on content that no longer exists.
+if (state.lang && !LANGS[state.lang]) state.lang = null;
 
 function rollDay() {
   if (state.today.day !== dayKey()) state.today = { day: dayKey(), xp: 0, goalHit: false };
