@@ -87,6 +87,22 @@ test.describe("app", () => {
     expect(problems).toEqual([]);
   });
 
+  test("offers the launch languages, and sends a retired one back to the picker", async ({ page }) => {
+    const problems = watchForErrors(page);
+    // Someone who picked Italian before it was retired, with progress saved on their phone.
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem("seeded")) {
+        localStorage.setItem("langroll:v1", JSON.stringify({ v: 1, lang: "it", goal: 60, xp: 40 }));
+        sessionStorage.setItem("seeded", "1");
+      }
+    });
+    await page.goto("/app/");
+    await expect(page.locator("#onboard")).toBeVisible();
+    await expect(page.locator("#lang-grid button")).toHaveText([/Spanish/, /French/, /Japanese/]);
+    await onboard(page);
+    expect(problems).toEqual([]);
+  });
+
   test("flip cards show the word before the answer", async ({ page }) => {
     await page.goto("/app/");
     await onboard(page);

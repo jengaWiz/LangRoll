@@ -40,6 +40,7 @@ describe("PATCH /me", () => {
 
   it.each([
     ["an unsupported language", { learningLang: "xx" }, /learningLang/],
+    ["a language retired for launch", { learningLang: "it" }, /learningLang/],
     ["an off-menu goal", { dailyGoalXp: 45 }, /dailyGoalXp/],
     ["a made-up time zone", { timezone: "Mars/Olympus" }, /IANA time zone/],
     ["a field it may not change", { id: randomUUID() }, /Unrecognized key/],
