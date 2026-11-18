@@ -1,0 +1,52 @@
+name: Deploy API
+
+# Deploys apps/api to Fly.io staging when API code reaches main. Migrations run first as
+# Fly's release command, so the schema is always ahead of the code.
+#
+# Off until set up: needs the repository variable FLY_DEPLOY_ENABLED=true and the secret
+# FLY_API_TOKEN (a deploy token scoped to the langroll-api-staging app).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/**"
+      - "package-lock.json"
+      - ".github/workflows/deploy-api.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-api-staging
+  cancel-in-progress: false # never cut a release off halfway through migrating
+
+jobs:
+  deploy:
+    name: Deploy to Fly (staging)
+    if: vars.FLY_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: staging
+      url: https://langroll-api-staging.fly.dev/health
+    steps:
+      - uses: actions/checkout@v4
+      # v1.6, pinned to a commit so a moved tag can't change what runs with our deploy token.
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+      - name: Deploy
+        run: >-
+          flyctl deploy . --config apps/api/fly.toml --dockerfile apps/api/Dockerfile
+          --remote-only --env APP_VERSION=${{ github.sha }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Check the new version is serving
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fs https://langroll-api-staging.fly.dev/health | grep -q '"version":"${{ github.sha }}"'; then
+              curl -fs https://langroll-api-staging.fly.dev/ready && exit 0
+            fi
+            sleep 5
+          done
+          echo "staging is not serving ${{ github.sha }}" && exit 1
