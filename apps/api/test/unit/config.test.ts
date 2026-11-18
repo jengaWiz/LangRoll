@@ -14,6 +14,8 @@ describe("loadConfig", () => {
       APP_VERSION: "dev",
       DATABASE_URL,
       SUPABASE_URL,
+      CORS_ORIGINS: ["http://127.0.0.1:4173", "http://localhost:4173"],
+      TRUST_PROXY_HOPS: 0,
     });
   });
 
@@ -37,5 +39,18 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ DATABASE_URL, NODE_ENV: "production", SUPABASE_URL: "http://abcd.supabase.co" })).toThrow(
       /https in production/,
     );
+  });
+
+  it("reads CORS origins as a list of exact origins", () => {
+    expect(loadConfig({ DATABASE_URL, SUPABASE_URL, CORS_ORIGINS: "https://a.example, https://b.example" }).CORS_ORIGINS).toEqual([
+      "https://a.example",
+      "https://b.example",
+    ]);
+    expect(() => loadConfig({ DATABASE_URL, SUPABASE_URL, CORS_ORIGINS: "https://jengawiz.github.io/LangRoll/" })).toThrow(
+      /CORS_ORIGINS/,
+    );
+    expect(() =>
+      loadConfig({ DATABASE_URL, SUPABASE_URL, NODE_ENV: "production", CORS_ORIGINS: "http://jengawiz.github.io" }),
+    ).toThrow(/https in production/);
   });
 });
