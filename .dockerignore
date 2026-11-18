@@ -1,0 +1,10 @@
+# Keep the build context small and secrets out of images.
+**/node_modules
+**/dist
+**/.env
+.git
+test-results
+playwright-report
+apps/site
+apps/web
+tests
