@@ -3,6 +3,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type { Config } from "./config.js";
 import type { VerifyToken } from "./auth.js";
 import type { Db } from "./db.js";
+import { eventRoutes } from "./routes/events.js";
 import { healthRoutes } from "./routes/health.js";
 import { meRoutes } from "./routes/me.js";
 
@@ -63,6 +64,7 @@ export function buildApp(config: Config, deps: Deps): FastifyInstance {
 
   app.register(healthRoutes, { version: config.APP_VERSION, db: deps.db });
   app.register(meRoutes, { verifyToken: deps.verifyToken, db: deps.db });
+  app.register(eventRoutes, { verifyToken: deps.verifyToken, db: deps.db });
 
   return app;
 }

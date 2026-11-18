@@ -1,36 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { FastifyInstance } from "fastify";
-import type pg from "pg";
-import { buildApp } from "../../src/app.js";
-import { AuthError, type VerifyToken } from "../../src/auth.js";
-import { loadConfig } from "../../src/config.js";
-import { createPool } from "../../src/db.js";
-import { loadMigrations, migrate } from "../../src/migrate.js";
-import { createTestDatabase } from "./helpers.js";
+import { afterAll, describe, expect, it } from "vitest";
+import { startTestApi } from "./helpers.js";
 
-const db = await createTestDatabase();
-let pool: pg.Pool;
-let app: FastifyInstance;
-
-// Token verification has its own unit tests. Here the "token" is just the user id.
-const verifyToken: VerifyToken = async (token) => {
-  if (!/^[0-9a-f-]{36}$/.test(token)) throw new AuthError("Invalid token.");
-  return { userId: token, isAnonymous: true };
-};
-
-beforeAll(async () => {
-  pool = createPool(db.url);
-  await migrate(pool, await loadMigrations(new URL("../../migrations/", import.meta.url)));
-  const config = loadConfig({ NODE_ENV: "test", DATABASE_URL: db.url, SUPABASE_URL: "http://127.0.0.1:54321" });
-  app = buildApp(config, { db: pool, verifyToken });
-});
-
-afterAll(async () => {
-  await app.close();
-  await pool.end();
-  await db.drop();
-});
+const { app, pool, stop } = await startTestApi();
+afterAll(stop);
 
 const get = (user: string) => app.inject({ method: "GET", url: "/me", headers: { authorization: `Bearer ${user}` } });
 const patch = (user: string, body: unknown) =>
