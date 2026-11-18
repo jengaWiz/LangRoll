@@ -43,7 +43,11 @@ Schema changes are SQL files in [`apps/api/migrations/`](apps/api/migrations/); 
 
 The API needs `DATABASE_URL` (a `postgres://` connection string) and `SUPABASE_URL` to start.
 Signed-in routes take a Supabase access token (`Authorization: Bearer …`), checked against the
-project's public signing keys, so the API stores no auth secret. `GET /health` reports
+project's public signing keys, so the API stores no auth secret.
+
+In production also set `CORS_ORIGINS` (the web app's origin, e.g. `https://jengawiz.github.io`) and
+`TRUST_PROXY_HOPS=1` behind the host's load balancer. Rate limits are 300 requests a minute per client
+and 60 for writes. Health checks are never limited. `GET /health` reports
 liveness and `GET /ready` returns 503 while the database is unreachable.
 
 Settings come from environment variables and are validated at startup in
