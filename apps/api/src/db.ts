@@ -4,6 +4,32 @@ import pg from "pg";
 // so unit tests can pass a fake.
 export interface Db {
   query<R extends pg.QueryResultRow = pg.QueryResultRow>(text: string, values?: unknown[]): Promise<pg.QueryResult<R>>;
+  // Runs `fn` in one transaction on one connection: committed if it resolves, rolled back if it throws.
+  transaction<T>(fn: (tx: Db) => Promise<T>): Promise<T>;
+}
+
+export function createDb(pool: pg.Pool): Db {
+  return {
+    query: (text, values) => pool.query(text, values),
+    transaction: async (fn) => {
+      const client = await pool.connect();
+      const tx: Db = {
+        query: (text, values) => client.query(text, values),
+        transaction: () => Promise.reject(new Error("nested transactions are not supported")),
+      };
+      try {
+        await client.query("begin");
+        const result = await fn(tx);
+        await client.query("commit");
+        return result;
+      } catch (err) {
+        await client.query("rollback").catch(() => {});
+        throw err;
+      } finally {
+        client.release();
+      }
+    },
+  };
 }
 
 export function createPool(connectionString: string): pg.Pool {

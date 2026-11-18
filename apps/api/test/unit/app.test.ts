@@ -10,7 +10,10 @@ const config = loadConfig({
   DATABASE_URL: "postgres://unused/db",
   SUPABASE_URL: "http://127.0.0.1:54321",
 });
-const db: Db = { query: async () => ({ rows: [], rowCount: 0, command: "SELECT", oid: 0, fields: [] }) };
+const db: Db = {
+  query: async () => ({ rows: [], rowCount: 0, command: "SELECT", oid: 0, fields: [] }),
+  transaction: (fn) => fn(db),
+};
 const verifyToken = async () => {
   throw new Error("not used in these tests");
 };
@@ -44,7 +47,12 @@ describe("GET /ready", () => {
   });
 
   it("returns 503 without details when the database is down", async () => {
-    const down: Db = { query: async () => { throw new Error("connect ECONNREFUSED 10.0.0.5:5432"); } };
+    const down: Db = {
+      query: async () => {
+        throw new Error("connect ECONNREFUSED 10.0.0.5:5432");
+      },
+      transaction: (fn) => fn(down),
+    };
     app = buildApp(config, { db: down, verifyToken });
     const res = await app.inject({ method: "GET", url: "/ready" });
     expect(res.statusCode).toBe(503);

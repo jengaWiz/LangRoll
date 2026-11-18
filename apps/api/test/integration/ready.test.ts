@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import { buildApp } from "../../src/app.js";
 import { loadConfig } from "../../src/config.js";
-import { createPool } from "../../src/db.js";
+import { createDb, createPool } from "../../src/db.js";
 import { testDatabaseUrl } from "./helpers.js";
 
 let app: FastifyInstance;
@@ -17,7 +17,7 @@ afterEach(async () => {
 function start(databaseUrl: string) {
   const config = loadConfig({ NODE_ENV: "test", DATABASE_URL: databaseUrl, SUPABASE_URL: "http://127.0.0.1:54321" });
   pool = createPool(config.DATABASE_URL);
-  app = buildApp(config, { db: pool, verifyToken: async () => ({ userId: "unused", isAnonymous: true }) });
+  app = buildApp(config, { db: createDb(pool), verifyToken: async () => ({ userId: "unused", isAnonymous: true }) });
   return app;
 }
 
