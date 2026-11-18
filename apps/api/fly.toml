@@ -1,0 +1,48 @@
+# Staging API on Fly.io. Deployed by .github/workflows/deploy-api.yml; by hand from the repo root:
+#   fly deploy . --config apps/api/fly.toml --dockerfile apps/api/Dockerfile
+#
+# Secrets (never in this file), set once with `fly secrets set -a langroll-api-staging ...`:
+#   DATABASE_URL   Supabase "Session pooler" connection string (see README)
+
+app = "langroll-api-staging"
+# Next to the Supabase database (AWS us-east-1), so each query is a short round trip.
+primary_region = "iad"
+
+[deploy]
+  # Runs in a one-off machine before the new version takes traffic. If it fails, the
+  # release stops and the old version keeps serving.
+  release_command = "node dist/migrate-cli.js"
+  strategy = "rolling"
+
+[env]
+  NODE_ENV = "production"
+  LOG_LEVEL = "info"
+  # Public values, safe to commit.
+  SUPABASE_URL = "https://drlhfpjnynpajxnqmzjb.supabase.co"
+  CORS_ORIGINS = "https://jengawiz.github.io"
+  # Fly's edge proxy sits in front of the app.
+  TRUST_PROXY_HOPS = "1"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  # Staging: sleep when idle and wake on the next request, so it costs almost nothing.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    timeout = "3s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
