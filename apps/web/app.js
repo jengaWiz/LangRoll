@@ -968,11 +968,17 @@ $("#goal-row").addEventListener("click", (e) => {
   pickGoal = Number(b.dataset.goal);
   renderOnboard();
 });
+// Sync failures never interrupt learning: the app runs from localStorage and retries later.
+function syncProfile() {
+  Sync.saveProfile({ lang: state.lang, goal: state.goal }).catch((err) => console.warn("sync:", err.message));
+}
+
 $("#start").addEventListener("click", () => {
   const changed = pickLang !== state.lang;
   state.lang = pickLang;
   state.goal = pickGoal;
   persist();
+  syncProfile();
   if (changed) { mode = "foryou"; buildFeed(); }
   show("feed");
 });
@@ -1058,6 +1064,7 @@ renderOnboard();
 if (state.lang) {
   buildFeed();
   show("feed");
+  syncProfile();
 } else {
   show("onboard");
 }

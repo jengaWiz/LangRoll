@@ -3,7 +3,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default [
-  { ignores: ["node_modules/", "dist/", "apps/api/dist/", "test-results/", "playwright-report/"] },
+  { ignores: ["node_modules/", "dist/", "apps/api/dist/", "apps/web/vendor/", "test-results/", "playwright-report/"] },
   js.configs.recommended,
   {
     files: ["**/*.js"],

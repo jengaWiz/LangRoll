@@ -203,6 +203,93 @@ test.describe("app", () => {
     });
   });
 
+  test.describe("sync", () => {
+    // Once the service worker controls the page, WebKit sends requests through it where
+    // page.route can't intercept them. The worker has its own tests (sw.spec.js).
+    test.use({ serviceWorkers: "block" });
+
+    // Fake hosts on purpose: if interception ever failed, requests would go nowhere rather than
+    // creating users in the real Supabase project.
+    const SUPABASE = "http://supabase.test";
+    const API = "http://api.test";
+    const USER = "11111111-2222-4333-8444-555555555555";
+    const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+    const exp = () => Math.floor(Date.now() / 1000) + 3600;
+    const jwt = () => `${b64({ alg: "ES256", typ: "JWT" })}.${b64({ sub: USER, aud: "authenticated", exp: exp(), is_anonymous: true })}.sig`;
+    const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization,content-type,apikey,x-client-info,x-supabase-api-version", "access-control-allow-methods": "GET,POST,PATCH,OPTIONS" };
+
+    // A stand-in Supabase and API that record what the app sends.
+    async function fakeBackend(page, { signupFails = false } = {}) {
+      const calls = { signups: 0, profiles: [] };
+      await page.route(`${SUPABASE}/auth/v1/**`, async (route) => {
+        if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+        if (!route.request().url().includes("/signup")) return route.fulfill({ status: 404, headers: cors, json: {} });
+        calls.signups++;
+        if (signupFails) return route.fulfill({ status: 500, headers: cors, json: { message: "down" } });
+        const token = jwt();
+        return route.fulfill({
+          headers: cors,
+          json: {
+            access_token: token, token_type: "bearer", expires_in: 3600, expires_at: exp(), refresh_token: "r1",
+            user: { id: USER, aud: "authenticated", role: "authenticated", is_anonymous: true, app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() },
+          },
+        });
+      });
+      await page.route(`${API}/**`, async (route) => {
+        const req = route.request();
+        if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+        if (req.method() === "PATCH" && req.url().endsWith("/me")) {
+          calls.profiles.push({ auth: req.headers().authorization, body: req.postDataJSON() });
+          return route.fulfill({ headers: cors, json: { id: USER } });
+        }
+        return route.fulfill({ status: 404, headers: cors, json: {} });
+      });
+      await page.addInitScript(([api, supabase]) => {
+        localStorage.setItem("langroll:api", api);
+        localStorage.setItem("langroll:supabase", supabase);
+      }, [API, SUPABASE]);
+      return calls;
+    }
+
+    test("signs in as a guest once and saves the learner's profile", async ({ page }) => {
+      const problems = watchForErrors(page);
+      const calls = await fakeBackend(page);
+      await page.goto("/app/");
+      await onboard(page);
+      await expect.poll(() => calls.profiles.length).toBe(1);
+      expect(calls.signups).toBe(1);
+      expect(calls.profiles[0].auth).toMatch(/^Bearer ey/);
+      expect(calls.profiles[0].body).toEqual({ learningLang: "es", dailyGoalXp: 30, timezone: expect.any(String) });
+
+      // Coming back reuses the stored session instead of creating a second guest.
+      await page.reload();
+      await expect.poll(() => calls.profiles.length).toBe(2);
+      expect(calls.signups).toBe(1);
+      expect(problems).toEqual([]);
+    });
+
+    test("keeps working when sign-in fails", async ({ page }) => {
+      const problems = watchForErrors(page);
+      const calls = await fakeBackend(page, { signupFails: true });
+      await page.goto("/app/");
+      await onboard(page);
+      await expect.poll(() => calls.signups).toBeGreaterThan(0);
+      await expect(page.locator("#feed .clip.active")).toHaveCount(1);
+      expect(calls.profiles).toEqual([]);
+      // The browser itself logs the forced 500; anything else is a real problem.
+      expect(problems.filter((p) => !p.includes("Failed to load resource"))).toEqual([]);
+    });
+
+    test("never contacts the backend from a local preview", async ({ page }) => {
+      const external = [];
+      page.on("request", (r) => { if (/supabase\.co|fly\.dev/.test(r.url())) external.push(r.url()); });
+      await page.goto("/app/");
+      await onboard(page);
+      await page.waitForTimeout(500);
+      expect(external).toEqual([]);
+    });
+  });
+
   test.describe("on a 4-inch phone", () => {
     test.use({ viewport: { width: 320, height: 568 } });
 
