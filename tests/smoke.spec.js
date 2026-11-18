@@ -191,7 +191,8 @@ test.describe("app", () => {
       // iOS Safari asks for the mic on every visit; answering it takes longer than the 6s recording window
       await page.evaluate((say) => Object.assign(window.__speech, { promptMs: 6500, say }), line);
       await clip.locator(".mic").click();
-      await expect(clip.locator(".mic-hint")).toContainText("heard:", { timeout: 10000 });
+      // Generous: the fake prompt alone takes 6.5s, and timers drift on a busy CI machine.
+      await expect(clip.locator(".mic-hint")).toContainText("heard:", { timeout: 20000 });
       await expect(clip).toHaveClass(/scored/);
     });
 
