@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { requireCaller, type VerifyToken } from "../auth.js";
 import type { Db } from "../db.js";
+import { WRITE_LIMIT } from "../security.js";
 import { EventBatch, refusal, storeEvents } from "../events.js";
 import { parse } from "../validation.js";
 
@@ -12,7 +13,7 @@ export const eventRoutes: FastifyPluginAsync<{ verifyToken: VerifyToken; db: Db 
   //   accepted    stored now
   //   duplicates  already stored by an earlier upload
   //   rejected    will never be stored (with the reason), so retrying is pointless
-  app.post("/events", { preHandler: auth }, async (request) => {
+  app.post("/events", { preHandler: auth, config: WRITE_LIMIT }, async (request) => {
     const { events } = parse(EventBatch, request.body);
     const now = Date.now();
     const rejected: { id: string; reason: string }[] = [];

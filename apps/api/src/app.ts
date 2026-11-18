@@ -6,6 +6,7 @@ import type { Db } from "./db.js";
 import { eventRoutes } from "./routes/events.js";
 import { healthRoutes } from "./routes/health.js";
 import { meRoutes } from "./routes/me.js";
+import { security } from "./security.js";
 
 export interface ApiError {
   error: { code: string; message: string; requestId: string };
@@ -19,6 +20,10 @@ export interface Deps {
 // Builds the app without listening, so tests can drive it with app.inject().
 // Dependencies are passed in so tests can swap them for fakes.
 export function buildApp(config: Config, deps: Deps): FastifyInstance {
+  // Behind the host's load balancer the client IP comes from X-Forwarded-For. Trust exactly
+  // that many hops, so a client can't spoof its IP by adding its own X-Forwarded-For entries.
+  const hops = config.TRUST_PROXY_HOPS;
+  const trustProxy = hops > 0 ? (_address: string, hop: number) => hop < hops : false;
   const app = Fastify({
     logger:
       config.NODE_ENV === "test"
@@ -33,6 +38,7 @@ export function buildApp(config: Config, deps: Deps): FastifyInstance {
     genReqId: () => randomUUID(),
     // Bodies are small JSON events. Refuse anything bigger instead of buffering it.
     bodyLimit: 64 * 1024,
+    trustProxy,
   });
 
   app.decorateRequest("caller", null);
@@ -62,6 +68,7 @@ export function buildApp(config: Config, deps: Deps): FastifyInstance {
     return reply.status(404).send(body);
   });
 
+  app.register(security, config);
   app.register(healthRoutes, { version: config.APP_VERSION, db: deps.db });
   app.register(meRoutes, { verifyToken: deps.verifyToken, db: deps.db });
   app.register(eventRoutes, { verifyToken: deps.verifyToken, db: deps.db });

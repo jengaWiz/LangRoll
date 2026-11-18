@@ -2,6 +2,22 @@ import { z } from "zod";
 
 // Every setting the API reads from the environment, validated once at startup so a
 // missing or malformed value fails the deploy instead of a request at 3am.
+// A comma-separated list of exact origins, e.g. "https://jengawiz.github.io,http://localhost:4173".
+const origins = z
+  .string()
+  .transform((s) => s.split(",").map((o) => o.trim()).filter(Boolean))
+  .pipe(
+    z.array(
+      z.string().refine((o) => {
+        try {
+          return new URL(o).origin === o;
+        } catch {
+          return false;
+        }
+      }, "each entry must be an origin like https://example.com, with no path or trailing slash"),
+    ),
+  );
+
 const Env = z
   .object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -14,10 +30,19 @@ const Env = z
   APP_VERSION: z.string().min(1).default("dev"),
   // Supabase project URL, e.g. https://abcd.supabase.co. Tokens are checked against its public keys.
   SUPABASE_URL: z.url({ protocol: /^https?$/, error: "must be an http(s) URL" }),
+  // Web pages allowed to call the API from a browser. Defaults to the local preview server.
+  CORS_ORIGINS: origins.default(["http://127.0.0.1:4173", "http://localhost:4173"]),
+  // How many proxies sit in front of the API (the host's load balancer is usually 1), so the
+  // client IP for rate limiting comes from X-Forwarded-For. 0 trusts no proxy headers.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
 })
   .refine((env) => env.NODE_ENV !== "production" || env.SUPABASE_URL.startsWith("https://"), {
     path: ["SUPABASE_URL"],
     message: "must use https in production",
+  })
+  .refine((env) => env.NODE_ENV !== "production" || env.CORS_ORIGINS.every((o) => o.startsWith("https://")), {
+    path: ["CORS_ORIGINS"],
+    message: "must all use https in production",
   });
 
 export type Config = z.infer<typeof Env>;

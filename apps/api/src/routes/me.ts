@@ -3,6 +3,7 @@ import { requireCaller, type VerifyToken } from "../auth.js";
 import { dueReviews } from "../cards.js";
 import type { Db } from "../db.js";
 import { getProgress } from "../progress.js";
+import { WRITE_LIMIT } from "../security.js";
 import { ensureProfile, ProfileUpdate, updateProfile } from "../users.js";
 import { parse } from "../validation.js";
 
@@ -26,7 +27,7 @@ export const meRoutes: FastifyPluginAsync<{ verifyToken: VerifyToken; db: Db }> 
     return dueReviews(opts.db, profile.id, profile.learningLang);
   });
 
-  app.patch("/me", { preHandler: auth }, async (request) => {
+  app.patch("/me", { preHandler: auth, config: WRITE_LIMIT }, async (request) => {
     const caller = request.caller!;
     const update = parse(ProfileUpdate, request.body);
     return { ...(await updateProfile(opts.db, caller.userId, update)), isAnonymous: caller.isAnonymous };
