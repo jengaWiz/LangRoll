@@ -52,3 +52,16 @@ liveness and `GET /ready` returns 503 while the database is unreachable.
 
 Settings come from environment variables and are validated at startup in
 [`apps/api/src/config.ts`](apps/api/src/config.ts); a bad value stops the server with a message naming it.
+
+### Container
+
+[`apps/api/Dockerfile`](apps/api/Dockerfile) builds a production image (from the repo root) that runs as
+a non-root user and ships only the API's runtime dependencies. The same image applies migrations:
+
+```
+docker build -f apps/api/Dockerfile -t langroll-api .
+docker run --env-file apps/api/.env langroll-api node dist/migrate-cli.js   # migrate first
+docker run --env-file apps/api/.env -p 8787:8787 langroll-api                # then start
+```
+
+CI builds the image, migrates a real Postgres from it, starts it and checks `/health` and `/ready`.
