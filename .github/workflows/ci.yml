@@ -78,6 +78,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -f apps/api/Dockerfile -t langroll-api .
+      - name: Image ships the database CA at the path fly.toml uses
+        run: |
+          ca=$(grep -oP 'DATABASE_CA = "\K[^"]+' apps/api/fly.toml)
+          docker run --rm langroll-api sh -c "head -1 $ca" | grep -q "BEGIN CERTIFICATE"
       - name: Migrations run from the image
         run: docker run --rm --network host -e DATABASE_URL langroll-api node dist/migrate-cli.js
       - name: Server starts and reports ready

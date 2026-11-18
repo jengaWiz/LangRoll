@@ -2,7 +2,8 @@
 #   fly deploy . --config apps/api/fly.toml --dockerfile apps/api/Dockerfile
 #
 # Secrets (never in this file), set once with `fly secrets set -a langroll-api-staging ...`:
-#   DATABASE_URL   Supabase "Session pooler" connection string (see README)
+#   DATABASE_URL   Supabase "Session pooler" connection string (see README). Any sslmode in
+#                  it is ignored: TLS is configured by DATABASE_CA below.
 
 app = "langroll-api-staging"
 # Next to the Supabase database (AWS us-east-1), so each query is a short round trip.
@@ -22,6 +23,8 @@ primary_region = "iad"
   CORS_ORIGINS = "https://jengawiz.github.io"
   # Fly's edge proxy sits in front of the app.
   TRUST_PROXY_HOPS = "1"
+  # Encrypt the database connection and verify Supabase's certificate (its own CA, shipped in the image).
+  DATABASE_CA = "/app/certs/supabase-prod-ca-2021.crt"
 
 [http_service]
   internal_port = 8787
