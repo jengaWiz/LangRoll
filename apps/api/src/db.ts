@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import pg from "pg";
 
 // What the app needs from the database. Routes depend on this, not on pg directly,
@@ -32,9 +33,27 @@ export function createDb(pool: pg.Pool): Db {
   };
 }
 
-export function createPool(connectionString: string): pg.Pool {
+// TLS options in the URL would override the verified settings below, so they are removed.
+const URL_TLS_PARAMS = ["sslmode", "ssl", "sslrootcert", "sslcert", "sslkey", "uselibpqcompat"];
+
+export interface PoolOptions {
+  // PEM file of the CA that signed the database's certificate (Supabase uses its own CA).
+  // When set, the connection is encrypted and both certificate and hostname are verified.
+  caFile?: string | undefined;
+}
+
+export function createPool(connectionString: string, opts: PoolOptions = {}): pg.Pool {
+  let url = connectionString;
+  let ssl: pg.PoolConfig["ssl"];
+  if (opts.caFile) {
+    const parsed = new URL(connectionString);
+    for (const p of URL_TLS_PARAMS) parsed.searchParams.delete(p);
+    url = parsed.toString();
+    ssl = { ca: readFileSync(opts.caFile, "utf8"), rejectUnauthorized: true };
+  }
   return new pg.Pool({
-    connectionString,
+    connectionString: url,
+    ...(ssl && { ssl }),
     application_name: "langroll-api",
     max: 10,
     // Fail fast instead of piling up requests when the database is unreachable.

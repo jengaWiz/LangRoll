@@ -11,7 +11,7 @@ if (!url) {
 
 // One level up from both src/ (tsx) and dist/ (built).
 const dir = new URL("../migrations/", import.meta.url);
-const pool = createPool(url);
+const pool = createPool(url, { caFile: process.env.DATABASE_CA });
 try {
   const applied = await migrate(pool, await loadMigrations(dir));
   console.log(applied.length ? `applied ${applied.join(", ")}` : "database is up to date");
