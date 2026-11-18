@@ -25,9 +25,19 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-// Cache first for the shell, network with cache fallback for everything else (fonts).
+// Only the app's own files and its web fonts are cached. Everything else, above all the API and
+// Supabase auth, goes straight to the network: caching them would replay stale, per-user
+// responses forever.
+const FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
+function cacheable(request) {
+  if (request.method !== "GET") return false;
+  const url = new URL(request.url);
+  return url.origin === self.location.origin || FONT_HOSTS.includes(url.hostname);
+}
+
+// Cache first for the shell, network with cache fallback for fonts.
 self.addEventListener("fetch", (e) => {
-  if (e.request.method !== "GET") return;
+  if (!cacheable(e.request)) return;
   e.respondWith(
     caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
       if (res.ok && (res.type === "basic" || res.type === "cors")) {
