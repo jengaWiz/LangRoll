@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Db } from "./db.js";
+import { updateCards } from "./cards.js";
 import { ensureProfile } from "./users.js";
 import { awardKey, awardXp, type ScoredEvent } from "./xp.js";
 
@@ -55,7 +56,8 @@ export function refusal(e: AppEvent, now = Date.now()): string | null {
 const MAX_BACKDATE = "36 hours";
 
 /**
- * Stores events for one learner and awards their XP, all in one transaction. Events already
+ * Stores events for one learner, awards their XP and updates their review cards, all in one
+ * transaction. Events already
  * stored (a retry, or a repeat within the batch) are skipped, so uploading the same batch twice
  * has no extra effect. Returns the ids that were new.
  */
@@ -125,6 +127,7 @@ export async function storeEvents(db: Db, userId: string, events: AppEvent[]): P
         [userId, [...perDay.keys()], [...perDay.values()], goal],
       );
     }
+    await updateCards(tx, userId, fresh);
     return fresh.map((e) => e.id);
   });
 }
