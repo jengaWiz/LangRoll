@@ -24,8 +24,11 @@ const Env = z
   HOST: z.string().min(1).default("127.0.0.1"),
   PORT: z.coerce.number().int().min(1).max(65535).default(8787),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
-  // Postgres connection string. On Supabase use the pooler URL with ?sslmode=require.
+  // Postgres connection string. On Supabase use the session pooler URL (port 5432).
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: "must be a postgres:// connection string" }),
+  // CA certificate (PEM file) to verify the database's TLS certificate against. In production on
+  // Supabase: certs/supabase-prod-ca-2021.crt. Unset means no TLS (local Postgres).
+  DATABASE_CA: z.string().min(1).optional(),
   // Reported by /health so we can tell which build is running. CI sets it to the commit SHA.
   APP_VERSION: z.string().min(1).default("dev"),
   // Supabase project URL, e.g. https://abcd.supabase.co. Tokens are checked against its public keys.

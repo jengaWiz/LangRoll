@@ -26,6 +26,7 @@ WORKDIR /app
 COPY --from=deps /repo/node_modules ./node_modules
 COPY --from=build /repo/apps/api/dist ./dist
 COPY apps/api/migrations ./migrations
+COPY apps/api/certs ./certs
 COPY apps/api/package.json ./
 # Run as the image's unprivileged user, not root.
 USER node

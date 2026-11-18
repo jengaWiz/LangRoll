@@ -11,8 +11,12 @@ try {
   process.exit(1);
 }
 
-const pool = createPool(config.DATABASE_URL);
+const pool = createPool(config.DATABASE_URL, { caFile: config.DATABASE_CA });
 const app = buildApp(config, { db: createDb(pool), verifyToken: supabaseVerifier(config.SUPABASE_URL) });
+
+if (config.NODE_ENV === "production" && !config.DATABASE_CA) {
+  app.log.warn("DATABASE_CA is not set: the database connection is not encrypted and verified");
+}
 
 // An idle connection dropping (e.g. a database restart) must not crash the process.
 pool.on("error", (err) => app.log.error({ err }, "idle database connection failed"));

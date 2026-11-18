@@ -80,6 +80,7 @@ One-time setup:
 3. Set the database secret yourself. Never paste it into chat or commit it:
    `fly secrets set -a langroll-api-staging DATABASE_URL='<Supabase → Connect → Session pooler URI>'`
    Use the **session** pooler (port 5432), not the transaction pooler (6543): migrations rely on a
-   session-level advisory lock.
+   session-level advisory lock. TLS is set by `DATABASE_CA` in `fly.toml`, which verifies the
+   certificate against Supabase's CA ([`apps/api/certs/`](apps/api/certs/)), so any `sslmode` in the URL is ignored.
 4. `fly tokens create deploy -a langroll-api-staging`, and save the token as the GitHub secret `FLY_API_TOKEN`.
 5. Set the GitHub repository variable `FLY_DEPLOY_ENABLED` to `true`.
