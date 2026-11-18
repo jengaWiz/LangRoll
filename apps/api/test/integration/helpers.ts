@@ -42,7 +42,7 @@ export async function createTestDatabase(): Promise<{ url: string; drop: () => P
 // The API on its own fresh, migrated database. The bearer "token" is simply the user id, since
 // real token checks have their own unit tests.
 export async function startTestApi() {
-  const [{ buildApp }, { AuthError }, { loadConfig }, { createPool }, { loadMigrations, migrate }] = await Promise.all([
+  const [{ buildApp }, { AuthError }, { loadConfig }, { createDb, createPool }, { loadMigrations, migrate }] = await Promise.all([
     import("../../src/app.js"),
     import("../../src/auth.js"),
     import("../../src/config.js"),
@@ -54,7 +54,7 @@ export async function startTestApi() {
   await migrate(pool, await loadMigrations(new URL("../../migrations/", import.meta.url)));
   const config = loadConfig({ NODE_ENV: "test", DATABASE_URL: db.url, SUPABASE_URL: "http://127.0.0.1:54321" });
   const app = buildApp(config, {
-    db: pool,
+    db: createDb(pool),
     verifyToken: async (token) => {
       if (!/^[0-9a-f-]{36}$/.test(token)) throw new AuthError("Invalid token.");
       return { userId: token, isAnonymous: true };
