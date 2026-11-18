@@ -26,7 +26,7 @@ async function newUser() {
 
 function addEvent(userId: string, id = randomUUID(), payload: object = {}) {
   return pool.query(
-    "insert into app.events (user_id, id, kind, clip_id, payload, occurred_at) values ($1, $2, 'clip_completed', 'es-v1', $3, now())",
+    "insert into app.events (user_id, id, kind, clip_id, payload, occurred_at, day) values ($1, $2, 'clip_viewed', 'es-v1', $3, now(), current_date)",
     [userId, id, payload],
   );
 }
