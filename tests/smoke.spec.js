@@ -1,3 +1,4 @@
+/* global Sync, clipById -- the app's globals, used only inside page.evaluate callbacks */
 import { expect, test } from "@playwright/test";
 
 // Fail on any JS error, console error, or broken same-origin request.
@@ -190,7 +191,8 @@ test.describe("app", () => {
       // iOS Safari asks for the mic on every visit; answering it takes longer than the 6s recording window
       await page.evaluate((say) => Object.assign(window.__speech, { promptMs: 6500, say }), line);
       await clip.locator(".mic").click();
-      await expect(clip.locator(".mic-hint")).toContainText("heard:", { timeout: 10000 });
+      // Generous: the fake prompt alone takes 6.5s, and timers drift on a busy CI machine.
+      await expect(clip.locator(".mic-hint")).toContainText("heard:", { timeout: 20000 });
       await expect(clip).toHaveClass(/scored/);
     });
 
@@ -219,8 +221,9 @@ test.describe("app", () => {
     const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization,content-type,apikey,x-client-info,x-supabase-api-version", "access-control-allow-methods": "GET,POST,PATCH,OPTIONS" };
 
     // A stand-in Supabase and API that record what the app sends.
-    async function fakeBackend(page, { signupFails = false } = {}) {
-      const calls = { signups: 0, profiles: [] };
+    // `events(batch, n)` decides each POST /events reply; by default everything is accepted.
+    async function fakeBackend(page, { signupFails = false, events } = {}) {
+      const calls = { signups: 0, profiles: [], uploads: [] };
       await page.route(`${SUPABASE}/auth/v1/**`, async (route) => {
         if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
         if (!route.request().url().includes("/signup")) return route.fulfill({ status: 404, headers: cors, json: {} });
@@ -241,6 +244,13 @@ test.describe("app", () => {
         if (req.method() === "PATCH" && req.url().endsWith("/me")) {
           calls.profiles.push({ auth: req.headers().authorization, body: req.postDataJSON() });
           return route.fulfill({ headers: cors, json: { id: USER } });
+        }
+        if (req.method() === "POST" && req.url().endsWith("/events")) {
+          const batch = req.postDataJSON().events;
+          calls.uploads.push(batch);
+          const reply = events?.(batch, calls.uploads.length) ?? { status: 200 };
+          const json = reply.json ?? { accepted: batch.map((e) => e.id), duplicates: [], rejected: [] };
+          return route.fulfill({ status: reply.status, headers: cors, json });
         }
         return route.fulfill({ status: 404, headers: cors, json: {} });
       });
@@ -265,7 +275,8 @@ test.describe("app", () => {
       await page.reload();
       await expect.poll(() => calls.profiles.length).toBe(2);
       expect(calls.signups).toBe(1);
-      expect(problems).toEqual([]);
+      // WebKit reports an upload cut off by the reload as an access-control error; the app handles it.
+      expect(problems.filter((p) => !/api\.test\/events due to access control checks/.test(p))).toEqual([]);
     });
 
     test("keeps working when sign-in fails", async ({ page }) => {
@@ -278,6 +289,57 @@ test.describe("app", () => {
       expect(calls.profiles).toEqual([]);
       // The browser itself logs the forced 500; anything else is a real problem.
       expect(problems.filter((p) => !p.includes("Failed to load resource"))).toEqual([]);
+    });
+
+    const answerQuiz = async (page) => {
+      const quiz = await scrollToKind(page, "quiz");
+      const answer = await quiz.evaluate((el) => clipById(el.dataset.id).answer);
+      await quiz.locator(`.opt[data-v="${answer}"]`).click();
+      return quiz.getAttribute("data-id");
+    };
+    const outbox = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("langroll:outbox") || "[]"));
+
+    test("uploads what the learner does and empties the outbox", async ({ page }) => {
+      const calls = await fakeBackend(page);
+      await page.goto("/app/");
+      await onboard(page);
+      const clipId = await answerQuiz(page);
+      await page.evaluate(() => Sync.flush());
+      const sent = calls.uploads.flat();
+      expect(sent).toContainEqual(
+        expect.objectContaining({ kind: "quiz_answered", clipId, payload: { firstTry: true }, id: expect.stringMatching(/^[0-9a-f-]{36}$/) }),
+      );
+      expect(Date.parse(sent.find((e) => e.kind === "quiz_answered").occurredAt)).toBeGreaterThan(Date.now() - 60_000);
+      expect(await outbox(page)).toEqual([]);
+    });
+
+    test("keeps events through failures and a reload, then sends them with the same ids", async ({ page }) => {
+      let down = true;
+      const calls = await fakeBackend(page, { events: () => (down ? { status: 503, json: {} } : undefined) });
+      await page.goto("/app/");
+      await onboard(page);
+      await answerQuiz(page);
+      await page.evaluate(() => Sync.flush().catch(() => {}));
+      const queued = await outbox(page);
+      expect(queued.some((e) => e.kind === "quiz_answered")).toBe(true);
+
+      await page.reload();
+      // Still queued after the reload (the reopened feed may add new events of its own).
+      expect(await outbox(page)).toEqual(expect.arrayContaining(queued));
+      down = false;
+      await page.evaluate(() => Sync.flush());
+      const resent = calls.uploads.at(-1).map((e) => e.id);
+      expect(resent).toEqual(expect.arrayContaining(queued.map((e) => e.id)));
+      expect(await outbox(page)).toEqual([]);
+    });
+
+    test("drops a batch the server says is malformed instead of retrying forever", async ({ page }) => {
+      await fakeBackend(page, { events: () => ({ status: 400, json: { error: { code: "invalid_request" } } }) });
+      await page.goto("/app/");
+      await onboard(page);
+      await answerQuiz(page);
+      await page.evaluate(() => Sync.flush());
+      expect(await outbox(page)).toEqual([]);
     });
 
     test("never contacts the backend from a local preview", async ({ page }) => {

@@ -539,6 +539,7 @@ const onEnter = {
   vocab(el) {
     const clip = clipById(el.dataset.id);
     ensureCard(clip.id);
+    Sync.record("clip_viewed", clip.id);
     persist();
     renderHud();
     const syl = $$(".phonetic span", el);
@@ -552,6 +553,7 @@ const onEnter = {
   },
   flip(el) {
     ensureCard(el.dataset.id);
+    Sync.record("clip_viewed", el.dataset.id);
     persist();
     renderHud();
   },
@@ -614,6 +616,7 @@ saveBtn.addEventListener("click", () => {
   const on = toggleIn(state.saved, id);
   // saving puts the word straight into the review queue
   if (on) state.cards[id] = dueSoon(ensureCard(id));
+  Sync.record("clip_saved", id, { saved: on });
   persist();
   updateRail();
   renderHud();
@@ -704,6 +707,7 @@ function answerQuiz(el, clip, opt) {
     const firstTry = !el.classList.contains("missed");
     result.textContent = firstTry ? `Correct! ${clip.explain}` : `There it is. ${clip.explain}`;
     ensureCard(clip.id);
+    Sync.record("quiz_answered", clip.id, { firstTry });
     addXP(firstTry ? 10 : 5, opt);
     confettiFrom(opt);
   } else {
@@ -730,6 +734,7 @@ function showScore(el, clip, score) {
     : ["Keep going", "tap 🔊 and copy the rhythm"];
   $(".score-text", el).innerHTML = `${title}<br><small>${sub}</small>`;
   el.classList.add("scored");
+  Sync.record("speech_scored", clip.id, { score: Math.round(score) });
   if (score >= 60 && !el.classList.contains("earned")) {
     el.classList.add("earned");
     ensureCard(clip.id);
@@ -806,6 +811,7 @@ function flipCard(el, btn) {
     speak(clipById(el.dataset.id).front);
     if (!el.classList.contains("earned")) {
       el.classList.add("earned");
+      Sync.record("card_flipped", el.dataset.id);
       addXP(5, btn);
     }
   }
@@ -827,6 +833,7 @@ function reviewCard(el, btn) {
   });
   const card = schedule(ensureCard(el.dataset.id), grade);
   state.cards[card.id] = card;
+  Sync.record("review_graded", card.id, { grade });
   persist();
   addXP(grade === "again" ? 2 : 5, btn);
   $(".quiz-result", el).textContent = grade === "again"
@@ -881,6 +888,7 @@ function endDuel(el, d, won) {
   clearTimeout(d.timer);
   state.duels.played++;
   if (won) state.duels.won++;
+  Sync.record("duel_finished", `${state.lang}-duel`, { won });
   persist();
   const result = $(".duel-result", el);
   result.textContent = won ? "You win! 🏆" : "Priya got there first 😤";

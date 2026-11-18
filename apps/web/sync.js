@@ -42,7 +42,7 @@ const Sync = (() => {
       headers: { authorization: `Bearer ${s.access_token}`, ...(body && { "content-type": "application/json" }) },
       body: body && JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`${method} ${path} failed with ${res.status}`);
+    if (!res.ok) throw Object.assign(new Error(`${method} ${path} failed with ${res.status}`), { status: res.status });
     return res.json();
   }
 
@@ -55,5 +55,89 @@ const Sync = (() => {
     });
   }
 
-  return { enabled, signIn, api, saveProfile };
+  // ---- Outbox: what the learner did, kept on the phone until the server has it ----
+  //
+  // Every action is stored first, with an id made here, then uploaded in batches. An event
+  // leaves the outbox only once the server answers for it (accepted, a duplicate of an earlier
+  // upload, or permanently rejected), so nothing is lost offline and retries never double-count.
+  const OUTBOX = "langroll:outbox";
+  const MAX_QUEUED = 1000; // about a month of heavy use; the server refuses anything older anyway
+  const BATCH = 100; // the API's limit per request
+  const RETRY_MAX_MS = 5 * 60 * 1000;
+
+  function readOutbox() {
+    try { return JSON.parse(localStorage.getItem(OUTBOX)) || []; } catch (e) { return []; }
+  }
+  function writeOutbox(events) {
+    try { localStorage.setItem(OUTBOX, JSON.stringify(events)); } catch (e) { /* storage full or blocked */ }
+  }
+
+  function newId() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    // Safari before 15.4
+    const b = crypto.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const h = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+  }
+
+  function record(kind, clipId, payload = {}) {
+    if (!enabled) return;
+    const events = readOutbox();
+    events.push({ id: newId(), kind, clipId, occurredAt: new Date().toISOString(), payload });
+    writeOutbox(events.slice(-MAX_QUEUED));
+    scheduleFlush(2000);
+  }
+
+  let timer = null;
+  let flushing = null;
+  let retryMs = 5000;
+
+  function scheduleFlush(delay) {
+    clearTimeout(timer);
+    timer = setTimeout(() => { flush().catch(() => {}); }, delay);
+  }
+
+  // Uploads the outbox, oldest first. Safe to call any time; concurrent calls share one run.
+  function flush() {
+    if (!enabled) return Promise.resolve();
+    if (!flushing) flushing = upload().finally(() => { flushing = null; });
+    return flushing;
+  }
+
+  async function upload() {
+    for (;;) {
+      const batch = readOutbox().slice(0, BATCH);
+      if (!batch.length) return;
+      let settled;
+      try {
+        const res = await api("POST", "/events", { events: batch });
+        settled = new Set([...res.accepted, ...res.duplicates, ...res.rejected.map((r) => r.id)]);
+        retryMs = 5000;
+      } catch (err) {
+        if (err.status === 400) {
+          // A malformed batch is a bug in this app; retrying would block the outbox forever.
+          console.warn("sync: dropping events the server can't read:", err.message);
+          settled = new Set(batch.map((e) => e.id));
+        } else {
+          // Offline, signed out, rate limited or a server error: keep everything and back off.
+          scheduleFlush(retryMs);
+          retryMs = Math.min(retryMs * 2, RETRY_MAX_MS);
+          throw err;
+        }
+      }
+      // Re-read, so events recorded during the upload aren't lost.
+      writeOutbox(readOutbox().filter((e) => !settled.has(e.id)));
+    }
+  }
+
+  if (enabled) {
+    addEventListener("online", () => flush().catch(() => {}));
+    document.addEventListener("visibilitychange", () => { if (document.hidden) flush().catch(() => {}); });
+    setInterval(() => flush().catch(() => {}), 60 * 1000);
+    scheduleFlush(1000);
+  }
+
+  return { enabled, signIn, api, saveProfile, record, flush, pending: () => readOutbox().length };
 })();
