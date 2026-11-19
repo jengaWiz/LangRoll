@@ -95,3 +95,31 @@ export async function dueReviews(db: Db, userId: string, lang: string, now = new
     deckSize: Number(counts.rows[0]!.deck_size),
   };
 }
+
+export interface DeckCard {
+  clipId: string;
+  dueAt: string;
+  intervalDays: number;
+  reps: number;
+  lapses: number;
+}
+
+// Bounded by the amount of content in a language; this guards against surprises.
+const DECK_LIMIT = 2000;
+
+/** Every card in one language, soonest due first, so the app can mirror the server's deck. */
+export async function deck(db: Db, userId: string, lang: string): Promise<DeckCard[]> {
+  const { rows } = await db.query<Row>(
+    `select clip_id, due_at, interval_days, ease, reps, lapses from app.cards
+      where user_id = $1 and starts_with(clip_id, $2)
+      order by due_at limit ${DECK_LIMIT}`,
+    [userId, `${lang}-`],
+  );
+  return rows.map((r) => ({
+    clipId: r.clip_id,
+    dueAt: r.due_at.toISOString(),
+    intervalDays: r.interval_days,
+    reps: r.reps,
+    lapses: r.lapses,
+  }));
+}
