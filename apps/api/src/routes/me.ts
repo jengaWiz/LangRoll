@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { requireCaller, type VerifyToken } from "../auth.js";
-import { dueReviews } from "../cards.js";
+import { deck, dueReviews } from "../cards.js";
 import type { Db } from "../db.js";
 import { getProgress } from "../progress.js";
 import { WRITE_LIMIT } from "../security.js";
@@ -25,6 +25,12 @@ export const meRoutes: FastifyPluginAsync<{ verifyToken: VerifyToken; db: Db }> 
     const profile = await ensureProfile(opts.db, request.caller!.userId);
     if (!profile.learningLang) return { due: [], dueCount: 0, deckSize: 0 };
     return dueReviews(opts.db, profile.id, profile.learningLang);
+  });
+
+  // The whole deck in the learner's current language, for the app to mirror.
+  app.get("/me/cards", { preHandler: auth }, async (request) => {
+    const profile = await ensureProfile(opts.db, request.caller!.userId);
+    return { cards: profile.learningLang ? await deck(opts.db, profile.id, profile.learningLang) : [] };
   });
 
   app.patch("/me", { preHandler: auth, config: WRITE_LIMIT }, async (request) => {

@@ -70,3 +70,26 @@ describe("GET /me/reviews", () => {
     expect((await app.inject({ method: "GET", url: "/me/reviews" })).statusCode).toBe(401);
   });
 });
+
+describe("GET /me/cards", () => {
+  const deckOf = async (user: string) => (await app.inject({ method: "GET", url: "/me/cards", headers: as(user) })).json().cards;
+
+  it("returns every card in the current language, soonest first, due or not", async () => {
+    const user = await learner("ja");
+    await cards(user, [
+      ["ja-v1", 600],
+      ["ja-q1", -5],
+      ["es-v1", -5],
+    ]);
+    const list = await deckOf(user);
+    expect(list.map((c: { clipId: string }) => c.clipId)).toEqual(["ja-q1", "ja-v1"]);
+    expect(list[0]).toEqual({ clipId: "ja-q1", dueAt: expect.any(String), intervalDays: 0, reps: 0, lapses: 0 });
+  });
+
+  it("is empty until a language is picked, and private to each learner", async () => {
+    const user = await learner();
+    await cards(user, [["es-v1", -5]]);
+    expect(await deckOf(user)).toEqual([]);
+    expect(await deckOf(await learner("es"))).toEqual([]);
+  });
+});
