@@ -977,8 +977,55 @@ $("#goal-row").addEventListener("click", (e) => {
   renderOnboard();
 });
 // Sync failures never interrupt learning: the app runs from localStorage and retries later.
+const syncFailed = (err) => console.warn("sync:", err.message);
+
+// The server is the source of truth for XP, streaks and the deck. The screen updates instantly
+// from the local copy, then takes the server's numbers once everything recorded here has been
+// uploaded, so they're the real ones and editing localStorage doesn't stick.
+function applyServer(server) {
+  if (!server || !state.lang) return;
+  const { totalXp, today, streak } = server.progress;
+  state.xp = totalXp;
+  if (today.day === dayKey()) state.today = { day: today.day, xp: today.xp, goalHit: today.goalHit };
+  state.streak = streak.current
+    ? { count: streak.current, last: today.xp > 0 ? today.day : yesterdayKey() }
+    : { count: 0, last: null };
+  for (const id of Object.keys(state.cards)) if (id.startsWith(state.lang + "-")) delete state.cards[id];
+  for (const c of server.cards) {
+    const local = state.cards[c.clipId];
+    state.cards[c.clipId] = { id: c.clipId, due: Date.parse(c.dueAt), interval: c.intervalDays, ease: local?.ease ?? 2.5, reps: c.reps, lapses: c.lapses };
+  }
+  persist();
+  renderHud();
+  if (screens.me && !screens.me.hidden) renderMe();
+  if (screens.deck && !screens.deck.hidden) renderDeck();
+}
+
+function refreshFromServer() {
+  return Sync.pull().then(applyServer, syncFailed);
+}
+
+// Profile first, so the server knows the language before we ask for its deck.
 function syncProfile() {
-  Sync.saveProfile({ lang: state.lang, goal: state.goal }).catch((err) => console.warn("sync:", err.message));
+  return Sync.saveProfile({ lang: state.lang, goal: state.goal }).then(refreshFromServer, syncFailed);
+}
+
+// Learners who used the app before it synced keep their words: each card and saved clip is sent
+// once as a "seen" or "saved" event, which gives it a card on the server. Old XP can't move over,
+// because the server only counts XP it worked out itself.
+const MIGRATED = "langroll:migrated";
+function migrateLocalDeck() {
+  if (!Sync.enabled) return;
+  let done = false;
+  try { done = localStorage.getItem(MIGRATED) === "1"; } catch (e) { /* storage blocked */ }
+  if (done) return;
+  const known = (id) => Boolean(clipById(id));
+  const cards = Object.keys(state.cards).filter(known);
+  const saved = state.saved.filter(known);
+  cards.forEach((id) => Sync.record("clip_viewed", id));
+  saved.forEach((id) => Sync.record("clip_saved", id, { saved: true }));
+  try { localStorage.setItem(MIGRATED, "1"); } catch (e) { /* storage blocked */ }
+  if (state.xp > 0 || cards.length) toast("☁️ Your progress now syncs to your account. Your words came with you", 4500);
 }
 
 $("#start").addEventListener("click", () => {
@@ -1069,6 +1116,7 @@ $("#reset").addEventListener("click", () => {
 // Boot
 // =========================================================
 renderOnboard();
+migrateLocalDeck();
 if (state.lang) {
   buildFeed();
   show("feed");
@@ -1077,9 +1125,13 @@ if (state.lang) {
   show("onboard");
 }
 
-// refresh due counts while the app stays open
+// refresh due counts while the app stays open, and the server's numbers when it comes back
 setInterval(renderHud, 30000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) renderHud(); });
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  renderHud();
+  refreshFromServer();
+});
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("./sw.js").catch(() => { /* offline support is a bonus */ });

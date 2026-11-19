@@ -139,5 +139,16 @@ const Sync = (() => {
     scheduleFlush(1000);
   }
 
-  return { enabled, signIn, api, saveProfile, record, flush, pending: () => readOutbox().length };
+  // The server's view of this learner, or null when it can't be trusted yet: until everything
+  // recorded here is uploaded, the server is missing some of it and would roll the screen back.
+  async function pull() {
+    if (!enabled) return null;
+    await flush();
+    if (readOutbox().length) return null;
+    const [progress, deck] = await Promise.all([api("GET", "/me/progress"), api("GET", "/me/cards")]);
+    if (readOutbox().length) return null; // the learner did something meanwhile; next time
+    return { progress, cards: deck.cards };
+  }
+
+  return { enabled, signIn, api, saveProfile, record, flush, pull, pending: () => readOutbox().length };
 })();
