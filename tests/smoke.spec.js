@@ -222,8 +222,11 @@ test.describe("app", () => {
 
     // A stand-in Supabase and API that record what the app sends.
     // `events(batch, n)` decides each POST /events reply; by default everything is accepted.
-    async function fakeBackend(page, { signupFails = false, events } = {}) {
-      const calls = { signups: 0, profiles: [], uploads: [] };
+    const today = () => new Date().toLocaleDateString("en-CA");
+    const noProgress = () => ({ totalXp: 0, today: { day: today(), xp: 0, goalXp: 30, goalHit: false }, streak: { current: 0, longest: 0 } });
+
+    async function fakeBackend(page, { signupFails = false, events, progress = noProgress, cards = () => [] } = {}) {
+      const calls = { signups: 0, profiles: [], uploads: [], pulls: 0 };
       await page.route(`${SUPABASE}/auth/v1/**`, async (route) => {
         if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
         if (!route.request().url().includes("/signup")) return route.fulfill({ status: 404, headers: cors, json: {} });
@@ -244,6 +247,13 @@ test.describe("app", () => {
         if (req.method() === "PATCH" && req.url().endsWith("/me")) {
           calls.profiles.push({ auth: req.headers().authorization, body: req.postDataJSON() });
           return route.fulfill({ headers: cors, json: { id: USER } });
+        }
+        if (req.method() === "GET" && req.url().endsWith("/me/progress")) {
+          calls.pulls++;
+          return route.fulfill({ headers: cors, json: progress() });
+        }
+        if (req.method() === "GET" && req.url().endsWith("/me/cards")) {
+          return route.fulfill({ headers: cors, json: { cards: cards() } });
         }
         if (req.method() === "POST" && req.url().endsWith("/events")) {
           const batch = req.postDataJSON().events;
@@ -340,6 +350,57 @@ test.describe("app", () => {
       await answerQuiz(page);
       await page.evaluate(() => Sync.flush());
       expect(await outbox(page)).toEqual([]);
+    });
+
+    // A learner who already used the app, with progress saved on this phone.
+    const returning = (page, extra = {}) =>
+      page.addInitScript((s) => {
+        if (!sessionStorage.getItem("seeded")) {
+          localStorage.setItem("langroll:v1", JSON.stringify(s));
+          sessionStorage.setItem("seeded", "1");
+        }
+      }, { v: 1, lang: "es", goal: 30, xp: 99999, today: { day: today(), xp: 999, goalHit: true }, streak: { count: 400, last: today() }, cards: {}, saved: [], ...extra });
+
+    test("shows the server's XP, streak and deck, not what's stored on the phone", async ({ page }) => {
+      await returning(page);
+      const due = new Date(Date.now() - 60_000).toISOString();
+      await fakeBackend(page, {
+        progress: () => ({ totalXp: 120, today: { day: today(), xp: 20, goalXp: 30, goalHit: false }, streak: { current: 4, longest: 9 } }),
+        cards: () => [{ clipId: "es-v1", dueAt: due, intervalDays: 3, reps: 2, lapses: 0 }],
+      });
+      await page.goto("/app/");
+      await expect(page.locator("#streak")).toHaveText("4");
+      await expect(page.locator("#xp-today")).toHaveText("20");
+      await expect(page.locator("#review-count")).toHaveText("1");
+      await page.locator('#tabbar button[data-screen="me"]').click();
+      await expect(page.locator("#me-stats")).toContainText("120");
+    });
+
+    test("doesn't take the server's numbers while uploads are still pending", async ({ page }) => {
+      const calls = await fakeBackend(page, { events: () => ({ status: 503, json: {} }) });
+      await page.goto("/app/");
+      await onboard(page);
+      const pullsBefore = calls.pulls; // onboarding may pull once, before anything is pending
+      await answerQuiz(page);
+      await page.evaluate(() => Sync.pull().catch(() => null));
+      await expect(page.locator("#xp-today")).toHaveText("10");
+      expect(calls.pulls).toBe(pullsBefore);
+    });
+
+    test("carries an existing deck over to the account once", async ({ page }) => {
+      await returning(page, { cards: { "es-v1": { id: "es-v1", due: 0, interval: 1, ease: 2.5, reps: 1, lapses: 0 }, "it-v1": { id: "it-v1" } }, saved: ["es-q1"] });
+      const calls = await fakeBackend(page);
+      await page.goto("/app/");
+      await expect(page.locator("#toast")).toContainText("syncs to your account");
+      await page.evaluate(() => Sync.flush());
+      const sent = () => calls.uploads.flat().map((e) => `${e.kind} ${e.clipId}`);
+      expect(sent()).toEqual(expect.arrayContaining(["clip_viewed es-v1", "clip_saved es-q1"]));
+      expect(sent()).not.toContain("clip_viewed it-v1"); // retired language: nothing to sync
+      const before = calls.uploads.flat().filter((e) => e.kind === "clip_saved").length;
+
+      await page.reload();
+      await page.evaluate(() => Sync.flush());
+      expect(calls.uploads.flat().filter((e) => e.kind === "clip_saved").length).toBe(before);
     });
 
     test("never contacts the backend from a local preview", async ({ page }) => {
