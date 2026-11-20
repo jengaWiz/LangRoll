@@ -125,7 +125,24 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium webkit
+      # Browsers are ~300 MB and their download has stalled CI for 10+ minutes, so cache them per
+      # Playwright version. On a hit only the system libraries are installed, from Ubuntu's mirrors.
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-webkit
+      - name: Install browsers
+        if: steps.browsers.outputs.cache-hit != 'true'
+        timeout-minutes: 8
+        run: npx playwright install --with-deps chromium webkit
+      - name: Install browser system libraries
+        if: steps.browsers.outputs.cache-hit == 'true'
+        timeout-minutes: 8
+        run: npx playwright install-deps chromium webkit
       - run: npm run test:smoke
         env:
           CI: true
