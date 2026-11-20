@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="app.css?v=5">
+  <link rel="stylesheet" href="app.css?v=6">
 </head>
 <body>
   <div class="app">
@@ -78,10 +78,25 @@
         <li><span>Learning <b id="me-lang"></b></span><button class="link" id="change-lang">Change</button></li>
         <li><label for="sound-toggle">Auto-play pronunciation</label><input type="checkbox" class="switch" id="sound-toggle"></li>
         <li id="install-row" hidden><span id="install-hint">Add LangRoll to your home screen</span><button class="link" id="install">Install</button></li>
+        <li><span>Found a bug? Have an idea?</span><button class="link" id="feedback-open">Send feedback</button></li>
         <li><a class="link" href="../">About LangRoll</a></li>
-        <li><button class="link danger" id="reset">Reset progress</button></li>
+        <li><a class="link" href="privacy.html">Privacy</a></li>
+        <li><button class="link danger" id="reset">Delete my data</button></li>
       </ul>
     </section>
+
+    <dialog class="sheet" id="feedback" aria-labelledby="feedback-title">
+      <form method="dialog" id="feedback-form">
+        <h2 id="feedback-title">Send feedback</h2>
+        <p class="sheet-sub">What broke, what confused you, what you loved. It goes straight to the team.</p>
+        <label class="visually-hidden" for="feedback-text">Your feedback</label>
+        <textarea id="feedback-text" maxlength="2000" rows="6" placeholder="The mic didn't pick me up on the Japanese clip…" required></textarea>
+        <div class="sheet-actions">
+          <button class="link" value="cancel" formnovalidate>Cancel</button>
+          <button class="btn" id="feedback-send" value="send">Send</button>
+        </div>
+      </form>
+    </dialog>
 
     <!-- ======================= TAB BAR ======================= -->
     <nav class="tabbar" id="tabbar" aria-label="App" hidden>
@@ -95,9 +110,9 @@
 
   <script src="vendor/supabase-js-2.118.0.js"></script>
   <script src="config.js?v=1"></script>
-  <script src="sync.js?v=3"></script>
+  <script src="sync.js?v=4"></script>
   <script src="content.js?v=5"></script>
   <script src="srs.js?v=4"></script>
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>

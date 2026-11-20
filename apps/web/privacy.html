@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LangRoll privacy</title>
+  <meta name="description" content="What LangRoll stores about you, where it lives, and how to delete it.">
+  <meta name="theme-color" content="#fff7f3">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <style>
+    :root { --bg: #fff7f3; --ink: #0d0b0c; --muted: #5f5658; --line: rgba(13, 11, 12, 0.09); --violet: #8a4dff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+    main { max-width: 640px; margin: 0 auto; padding: max(28px, env(safe-area-inset-top)) 16px 48px; }
+    a { color: var(--violet); font-weight: 600; }
+    .back { display: inline-block; margin-bottom: 18px; text-decoration: none; }
+    h1 { font-size: 2rem; line-height: 1.1; letter-spacing: -0.03em; margin: 0 0 6px; }
+    h2 { font-size: 1.1rem; margin: 28px 0 6px; }
+    .meta { color: var(--muted); margin: 0 0 8px; font-size: 0.92rem; }
+    p, li { margin: 6px 0; }
+    ul { padding-left: 20px; }
+    .note { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back" href="./">← Back to LangRoll</a>
+    <h1>Privacy</h1>
+    <p class="meta">Last updated 20 November 2026 · this is a test version of LangRoll</p>
+    <p class="note">Short version: you don't give us your name or email, we keep only what the app needs to
+      track your progress, nothing is sold or shown to advertisers, and <b>You → Delete my data</b> erases it.</p>
+
+    <h2>What we store</h2>
+    <ul>
+      <li><b>A guest account.</b> The app creates it the first time you open it: a random ID, with no name, email or password.</li>
+      <li><b>Your settings:</b> the language you're learning, your daily goal and your time zone (so your streak rolls over at your midnight).</li>
+      <li><b>What you do in lessons:</b> which clips you've seen, your quiz answers (right first time or not), review grades, saves, duel results and speaking scores as numbers.</li>
+      <li><b>What we work out from that:</b> your XP, streak and when each word comes back for review.</li>
+      <li><b>Feedback you send</b>, with the app version and a device type like "iPhone Safari".</li>
+    </ul>
+
+    <h2>Speaking practice</h2>
+    <p>When you tap the mic, your browser's own speech service turns what you say into text: Apple's on iPhone and in Safari,
+      Google's in Chrome. LangRoll never receives the audio, only the score the app works out from the text.</p>
+
+    <h2>Where it lives</h2>
+    <ul>
+      <li>Your guest account and progress: a database run by <a href="https://supabase.com/privacy">Supabase</a> in the United States.</li>
+      <li>Our server, which checks and scores your progress: <a href="https://fly.io/legal/privacy-policy">Fly.io</a>, also in the US.</li>
+      <li>The app itself is served by GitHub Pages. Your phone also keeps a copy of your progress so the app works offline.</li>
+    </ul>
+    <p>Connections are encrypted. We don't use advertising or tracking cookies. We don't use analytics yet. If we add
+      usage analytics, this page will say so before it starts.</p>
+
+    <h2>Deleting your data</h2>
+    <p>In the app, go to <b>You → Delete my data</b>. Everything above is erased from our database straight away, and
+      the app starts over with a new, unconnected guest account. You need to be online for this, so the app can confirm
+      the deletion with our server.</p>
+
+    <h2>Questions</h2>
+    <p>Use <b>You → Send feedback</b> in the app. It reaches the team directly.</p>
+  </main>
+</body>
+</html>

@@ -2,6 +2,8 @@
 // Content lives in content.js, review scheduling in srs.js. Everything persists to localStorage.
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// This file's own ?v= number, bumped on every release, identifies the build in feedback.
+const APP_VERSION = `app-v${new URL(document.currentScript.src).searchParams.get("v") || "dev"}`;
 const palette = ["#e8473b", "#f08a6c", "#f9cdbb", "#5470ff", "#8a4dff", "#0d0b0c"];
 const STORE_KEY = "langroll:v1";
 const GOALS = [
@@ -1106,8 +1108,54 @@ $("#install").addEventListener("click", async () => {
   installPrompt = null;
   renderMe();
 });
-$("#reset").addEventListener("click", () => {
-  if (!confirm("Reset all progress? Your XP, streak and deck will be erased.")) return;
+// --- feedback ---
+// A coarse device label ("iPhone Safari"), enough to spot device bugs without a full user agent.
+function platformLabel() {
+  const ua = navigator.userAgent;
+  const device = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) || IOS ? "iPad" : /Android/.test(ua) ? "Android"
+    : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : "Other";
+  const browser = /CriOS|Chrome/.test(ua) ? "Chrome" : /FxiOS|Firefox/.test(ua) ? "Firefox" : /Safari/.test(ua) ? "Safari" : "Other";
+  const installed = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  return `${device} ${browser}${installed ? " (installed)" : ""}`;
+}
+
+const feedbackDialog = $("#feedback");
+$("#feedback-open").addEventListener("click", () => {
+  if (!Sync.enabled) return toast("Feedback works in the live app");
+  feedbackDialog.showModal();
+  $("#feedback-text").focus();
+});
+$("#feedback-form").addEventListener("submit", async (e) => {
+  if (e.submitter?.value !== "send") return; // Cancel just closes the dialog
+  e.preventDefault();
+  const text = $("#feedback-text").value.trim();
+  if (!text) return;
+  const send = $("#feedback-send");
+  send.disabled = true;
+  try {
+    await Sync.sendFeedback(text, APP_VERSION, platformLabel());
+    $("#feedback-text").value = "";
+    feedbackDialog.close();
+    toast("💌 Thanks! The team will read it");
+  } catch (err) {
+    toast(err.status === 429 ? "That's a lot of feedback. Try again in a bit" : "Couldn't send. Check your connection and try again", 3500);
+  } finally {
+    send.disabled = false;
+  }
+});
+
+// --- delete my data ---
+// Deletes everything on the server first, and only then clears this phone, so a failed request
+// never leaves the account half-deleted.
+$("#reset").addEventListener("click", async () => {
+  if (!confirm("Delete all your data? Your XP, streak, deck and feedback will be erased for good.")) return;
+  if (Sync.enabled) {
+    try {
+      await Sync.deleteAccount();
+    } catch (err) {
+      return toast("Couldn't reach the server, so nothing was deleted. Try again when you're online", 4000);
+    }
+  }
   try { localStorage.removeItem(STORE_KEY); } catch (e) { /* ignore */ }
   location.reload();
 });
