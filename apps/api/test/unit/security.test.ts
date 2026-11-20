@@ -58,6 +58,17 @@ describe("CORS", () => {
     expect(res.headers["access-control-allow-headers"]).toMatch(/authorization/);
   });
 
+  it("allows DELETE from our site, for \"Delete my data\"", async () => {
+    start();
+    const res = await app.inject({
+      method: "OPTIONS",
+      url: "/me",
+      headers: { origin: "https://jengawiz.github.io", "access-control-request-method": "DELETE", "access-control-request-headers": "authorization" },
+    });
+    expect(res.statusCode).toBe(204);
+    expect(res.headers["access-control-allow-methods"]).toMatch(/DELETE/);
+  });
+
   it("gives other sites no access", async () => {
     start();
     const res = await preflight("https://evil.example");

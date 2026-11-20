@@ -4,7 +4,7 @@ import { deck, dueReviews } from "../cards.js";
 import type { Db } from "../db.js";
 import { getProgress } from "../progress.js";
 import { WRITE_LIMIT } from "../security.js";
-import { ensureProfile, ProfileUpdate, updateProfile } from "../users.js";
+import { deleteLearner, ensureProfile, ProfileUpdate, updateProfile } from "../users.js";
 import { parse } from "../validation.js";
 
 // The caller's own profile. The user id always comes from the verified token, never from the
@@ -31,6 +31,14 @@ export const meRoutes: FastifyPluginAsync<{ verifyToken: VerifyToken; db: Db }> 
   app.get("/me/cards", { preHandler: auth }, async (request) => {
     const profile = await ensureProfile(opts.db, request.caller!.userId);
     return { cards: profile.learningLang ? await deck(opts.db, profile.id, profile.learningLang) : [] };
+  });
+
+  // "Delete my data": removes the profile, events, cards and progress. Idempotent, so a retry
+  // after a dropped connection is safe. The app should sign out afterwards; another request with
+  // the same token would start a fresh, empty profile.
+  app.delete("/me", { preHandler: auth, config: WRITE_LIMIT }, async (request, reply) => {
+    await deleteLearner(opts.db, request.caller!.userId);
+    return reply.status(204).send();
   });
 
   app.patch("/me", { preHandler: auth, config: WRITE_LIMIT }, async (request) => {

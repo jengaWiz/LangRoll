@@ -22,7 +22,7 @@ export const security = fp(async (app: FastifyInstance, config: Config) => {
   // cookie, so credentials stay off.
   await app.register(cors, {
     origin: config.CORS_ORIGINS,
-    methods: ["GET", "POST", "PATCH"],
+    methods: ["GET", "POST", "PATCH", "DELETE"],
     allowedHeaders: ["authorization", "content-type"],
     credentials: false,
     maxAge: 600,
