@@ -43,7 +43,7 @@ const Sync = (() => {
       body: body && JSON.stringify(body),
     });
     if (!res.ok) throw Object.assign(new Error(`${method} ${path} failed with ${res.status}`), { status: res.status });
-    return res.json();
+    return res.status === 204 ? null : res.json();
   }
 
   // The learner's settings, so the server scores their days in their own timezone.
@@ -150,5 +150,21 @@ const Sync = (() => {
     return { progress, cards: deck.cards };
   }
 
-  return { enabled, signIn, api, saveProfile, record, flush, pull, pending: () => readOutbox().length };
+  function sendFeedback(message, appVersion, platform) {
+    return api("POST", "/feedback", { message, appVersion, platform });
+  }
+
+  // "Delete my data": the server deletes everything it holds, then this phone forgets the
+  // account, so the next launch starts a fresh guest with nothing linking back. Throws (and
+  // changes nothing locally) if the server can't be reached, so a deletion is never half done.
+  async function deleteAccount() {
+    await api("DELETE", "/me");
+    clearTimeout(timer);
+    await auth().signOut({ scope: "local" }).catch(() => {});
+    for (const key of ["langroll:auth", OUTBOX, "langroll:migrated"]) {
+      try { localStorage.removeItem(key); } catch (e) { /* storage blocked */ }
+    }
+  }
+
+  return { enabled, signIn, api, saveProfile, record, flush, pull, sendFeedback, deleteAccount, pending: () => readOutbox().length };
 })();

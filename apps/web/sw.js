@@ -1,15 +1,16 @@
 // Offline app shell. Bump VERSION whenever app files change so phones pick up the update.
-const VERSION = "langroll-v11";
+const VERSION = "langroll-v12";
 const SHELL = [
   "./",
   "index.html",
-  "app.css?v=5",
+  "app.css?v=6",
   "content.js?v=5",
   "srs.js?v=4",
-  "app.js?v=10",
+  "app.js?v=11",
   "config.js?v=1",
-  "sync.js?v=3",
+  "sync.js?v=4",
   "vendor/supabase-js-2.118.0.js",
+  "privacy.html",
   "manifest.webmanifest",
   "icon.svg",
   "icon-192.png",

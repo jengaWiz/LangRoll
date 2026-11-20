@@ -892,3 +892,32 @@ li.due .deck-due { color: var(--violet); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* bottom sheet (feedback) */
+.sheet {
+  width: min(100% - 24px, 460px);
+  margin: auto auto 12px;
+  padding: 22px 20px calc(18px + var(--safe-bottom));
+  border: 0;
+  border-radius: 24px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 20px 60px rgba(13, 11, 12, 0.35);
+}
+.sheet::backdrop { background: rgba(13, 11, 12, 0.55); }
+.sheet h2 { font-size: 1.4rem; }
+.sheet-sub { margin: 8px 0 14px; color: var(--muted); font-size: 0.9rem; }
+.sheet textarea {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+  font: inherit;
+  font-size: 16px; /* 16px stops iOS zooming into the field */
+  resize: vertical;
+}
+.sheet-actions { display: flex; align-items: center; gap: 16px; margin-top: 14px; }
+.sheet-actions .btn { width: auto; flex: 1; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

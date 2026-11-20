@@ -104,6 +104,17 @@ test.describe("app", () => {
     expect(problems).toEqual([]);
   });
 
+  test("privacy page loads, fits the screen and links back to the app", async ({ page }) => {
+    const problems = watchForErrors(page);
+    await page.goto("/app/privacy.html");
+    await expect(page.locator("h1")).toHaveText("Privacy");
+    await expect(page.locator("text=Delete my data").first()).toBeVisible();
+    await expectNoSideScroll(page);
+    await page.locator("a.back").click();
+    await expect(page).toHaveURL(/\/app\/$/);
+    expect(problems).toEqual([]);
+  });
+
   test("flip cards show the word before the answer", async ({ page }) => {
     await page.goto("/app/");
     await onboard(page);
@@ -225,8 +236,8 @@ test.describe("app", () => {
     const today = () => new Date().toLocaleDateString("en-CA");
     const noProgress = () => ({ totalXp: 0, today: { day: today(), xp: 0, goalXp: 30, goalHit: false }, streak: { current: 0, longest: 0 } });
 
-    async function fakeBackend(page, { signupFails = false, events, progress = noProgress, cards = () => [] } = {}) {
-      const calls = { signups: 0, profiles: [], uploads: [], pulls: 0 };
+    async function fakeBackend(page, { signupFails = false, events, progress = noProgress, cards = () => [], deleteStatus = 204 } = {}) {
+      const calls = { signups: 0, profiles: [], uploads: [], pulls: 0, feedback: [], deletes: [] };
       await page.route(`${SUPABASE}/auth/v1/**`, async (route) => {
         if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
         if (!route.request().url().includes("/signup")) return route.fulfill({ status: 404, headers: cors, json: {} });
@@ -247,6 +258,14 @@ test.describe("app", () => {
         if (req.method() === "PATCH" && req.url().endsWith("/me")) {
           calls.profiles.push({ auth: req.headers().authorization, body: req.postDataJSON() });
           return route.fulfill({ headers: cors, json: { id: USER } });
+        }
+        if (req.method() === "POST" && req.url().endsWith("/feedback")) {
+          calls.feedback.push(req.postDataJSON());
+          return route.fulfill({ status: 201, headers: cors, json: { id: USER } });
+        }
+        if (req.method() === "DELETE" && req.url().endsWith("/me")) {
+          calls.deletes.push(req.headers().authorization);
+          return route.fulfill({ status: deleteStatus, headers: cors, ...(deleteStatus !== 204 && { json: {} }) });
         }
         if (req.method() === "GET" && req.url().endsWith("/me/progress")) {
           calls.pulls++;
@@ -401,6 +420,54 @@ test.describe("app", () => {
       await page.reload();
       await page.evaluate(() => Sync.flush());
       expect(calls.uploads.flat().filter((e) => e.kind === "clip_saved").length).toBe(before);
+    });
+
+    const openYou = (page) => page.locator('#tabbar button[data-screen="me"]').click();
+
+    test("sends feedback with the app version and device type", async ({ page }) => {
+      const calls = await fakeBackend(page);
+      await page.goto("/app/");
+      await onboard(page);
+      await openYou(page);
+      await page.locator("#feedback-open").click();
+      await expect(page.locator("#feedback")).toBeVisible();
+      await page.locator("#feedback-text").fill("  The Japanese clip played the Spanish voice  ");
+      await page.locator("#feedback-send").click();
+      await expect(page.locator("#toast")).toContainText("Thanks");
+      await expect(page.locator("#feedback")).toBeHidden();
+      expect(calls.feedback).toEqual([
+        { message: "The Japanese clip played the Spanish voice", appVersion: expect.stringMatching(/^app-v\d+$/), platform: expect.stringMatching(/^\w+ \w+/) },
+      ]);
+    });
+
+    test("deletes the data on the server first, then forgets the account on this phone", async ({ page }) => {
+      const calls = await fakeBackend(page);
+      await page.goto("/app/");
+      await onboard(page);
+      await answerQuiz(page);
+      await openYou(page);
+      page.once("dialog", (d) => d.accept());
+      await page.locator("#reset").click();
+      await expect(page.locator("#onboard")).toBeVisible();
+      expect(calls.deletes).toEqual([expect.stringMatching(/^Bearer /)]);
+      const left = await page.evaluate(() => ["langroll:v1", "langroll:auth", "langroll:outbox"].map((k) => localStorage.getItem(k)));
+      // After the reload the app may already have saved a fresh, empty state; the old progress must be gone.
+      expect(left[0] === null || JSON.parse(left[0]).xp === 0).toBe(true);
+      expect(left[1]).toBeNull();
+      expect(left[2] === null || JSON.parse(left[2]).length === 0).toBe(true);
+    });
+
+    test("deletes nothing if the server can't be reached", async ({ page }) => {
+      const calls = await fakeBackend(page, { deleteStatus: 503 });
+      await page.goto("/app/");
+      await onboard(page);
+      await openYou(page);
+      page.once("dialog", (d) => d.accept());
+      await page.locator("#reset").click();
+      await expect(page.locator("#toast")).toContainText("nothing was deleted");
+      expect(calls.deletes).toHaveLength(1);
+      const kept = await page.evaluate(() => [JSON.parse(localStorage.getItem("langroll:v1")).lang, localStorage.getItem("langroll:auth") !== null]);
+      expect(kept).toEqual(["es", true]);
     });
 
     test("never contacts the backend from a local preview", async ({ page }) => {
