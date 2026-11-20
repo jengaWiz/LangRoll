@@ -91,7 +91,7 @@ export async function updateProfile(db: Db, id: string, update: ProfileUpdate): 
 
 /**
  * Deletes everything we store about a learner: the profile row, and through it (on delete
- * cascade) their events, cards and daily progress. Returns whether there was anything to delete.
+ * cascade) their events, cards, daily progress and feedback. Returns whether there was anything to delete.
  */
 export async function deleteLearner(db: Db, id: string): Promise<boolean> {
   const { rowCount } = await db.query("delete from app.users where id = $1", [id]);
