@@ -19,7 +19,12 @@ const FIELDS = {
   quiz: { q: 80, sub: 80, explain: 140 },
   speak: { line: 60, meaning: 80 },
   flip: { front: 24, reading: 40, meaning: 60, note: 140 },
+  watch: { line: 80, meaning: 80, channel: 40 },
 };
+// Every language needs these. Watch clips are optional: they depend on finding the right scene.
+const CORE_KINDS = ["vocab", "quiz", "speak", "flip"];
+// A YouTube video id, as in youtube.com/watch?v=dQw4w9WgXcQ.
+const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
 function problems(lang, clip) {
   const out = [];
@@ -29,7 +34,8 @@ function problems(lang, clip) {
   if (!FIELDS[clip.kind]) return [...out, `${clip.id}: unknown kind "${clip.kind}"`];
   if (!text(clip.tag, 20)) bad("needs a short tag (≤20 chars)");
   if (!text(clip.caption, 140)) bad("needs a caption (≤140 chars)");
-  if (!CREATORS[clip.creator]) bad(`unknown creator "${clip.creator}"`);
+  // a watch clip credits the YouTube channel instead of one of our creators
+  if (clip.kind !== "watch" && !CREATORS[clip.creator]) bad(`unknown creator "${clip.creator}"`);
   for (const [field, max] of Object.entries(FIELDS[clip.kind])) {
     if (!text(clip[field], max)) bad(`${field} is missing or longer than ${max} chars`);
   }
@@ -44,6 +50,15 @@ function problems(lang, clip) {
       if (new Set(clip.options).size !== 3) bad("options must be different");
       if (!clip.options.includes(clip.answer)) bad(`answer "${clip.answer}" isn't one of the options`);
     }
+  }
+  if (clip.kind === "watch") {
+    if (!VIDEO_ID.test(clip.video ?? "")) bad("video must be the 11-character id from the YouTube link");
+    const { start, end } = clip;
+    if (!Number.isFinite(start) || start < 0) bad("start must be a time in seconds");
+    else if (!Number.isFinite(end) || end <= start) bad("end must be after start");
+    // One line, not a whole scene: short enough to loop and replay.
+    else if (end - start > 30) bad("a scene can be at most 30 seconds");
+    if (clip.shape !== undefined && !["wide", "tall"].includes(clip.shape)) bad('shape is "wide" (normal video) or "tall" (Shorts)');
   }
   if (clip.hint !== undefined && !text(clip.hint, 40)) bad("hint must be short text");
   return out;
@@ -67,7 +82,8 @@ for (const [lang, L] of Object.entries(LANGS)) {
     });
 
     test("has every kind of clip and a usable duel", () => {
-      expect(new Set(L.clips.map((c) => c.kind))).toEqual(new Set(Object.keys(FIELDS)));
+      const kinds = new Set(L.clips.map((c) => c.kind));
+      expect(CORE_KINDS.filter((k) => !kinds.has(k))).toEqual([]);
       expect(L.duel.length).toBeGreaterThanOrEqual(8);
       expect(new Set(L.duel.map(([p]) => p)).size).toBe(L.duel.length);
       expect(new Set(L.duel.map(([, a]) => a)).size).toBe(L.duel.length);
@@ -83,4 +99,16 @@ test("every creator is used, so none are left behind", () => {
   const used = new Set(Object.values(LANGS).flatMap((L) => L.clips.map((c) => c.creator)));
   used.add("priya"); // the duel rival
   expect(Object.keys(CREATORS).filter((c) => !used.has(c))).toEqual([]);
+});
+
+// No language has watch clips yet, so check the rules on a sample.
+test("watch clips are checked too", () => {
+  const scene = { id: "es-w1", kind: "watch", tag: "In a café", caption: "ordering like a local", video: "dQw4w9WgXcQ", start: 12, end: 16.5, line: "Un café, por favor.", meaning: "A coffee, please.", channel: "Some Channel" };
+  expect(problems("es", scene)).toEqual([]);
+  expect(problems("es", { ...scene, shape: "tall" })).toEqual([]);
+  expect(problems("es", { ...scene, video: "https://youtu.be/dQw4w9WgXcQ" })).toEqual([expect.stringContaining("video must be")]);
+  expect(problems("es", { ...scene, end: 10 })).toEqual([expect.stringContaining("end must be after start")]);
+  expect(problems("es", { ...scene, end: 60 })).toEqual([expect.stringContaining("at most 30 seconds")]);
+  expect(problems("es", { ...scene, shape: "square" })).toEqual([expect.stringContaining("shape")]);
+  expect(problems("es", { ...scene, channel: undefined })).toEqual([expect.stringContaining("channel")]);
 });
