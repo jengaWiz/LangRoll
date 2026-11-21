@@ -867,6 +867,51 @@ li.due .deck-due { color: var(--violet); }
 .tabbar button span { font-size: 1.15rem; line-height: 1; }
 .tabbar button.active { color: #fff; }
 
+/* watch: a scene from a YouTube video, with the line that's said in it */
+.clip.watch { padding-right: 18px; }
+.watch .clip-bg { background: var(--poster) center / cover; filter: blur(36px) saturate(1.3) brightness(0.4); transform: scale(1.3); }
+.watch .glyph { display: none; }
+/* the scene and its line sit together in the middle, with the credit at the bottom */
+.watch-slot { position: relative; z-index: 1; flex: none; margin-top: auto; overflow: hidden; background: #000; }
+.watch-slot.wide { margin-inline: -18px; aspect-ratio: 16 / 9; }
+.watch-slot.tall {
+  align-self: center;
+  height: min(56vh, calc(100vh - 340px));
+  height: min(56svh, calc(100svh - 340px));
+  aspect-ratio: 9 / 16;
+  border-radius: 14px;
+}
+.watch-poster { display: block; width: 100%; height: 100%; object-fit: cover; }
+.watch .clip-body { flex: none; padding-top: 14px; }
+.watch .clip-meta { margin-top: auto; }
+.watch-line { margin: 0; }
+.watch-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.watch-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.watch-actions button.on { background: #fff; color: var(--ink); }
+.watch-source {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 0;
+  color: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
 /* short phones (4-inch iPhone SE and similar): tighten clips so lessons clear the caption */
 @media (max-height: 620px) {
   .clip { padding-top: calc(64px + var(--safe-top)); }
@@ -875,6 +920,8 @@ li.due .deck-due { color: var(--violet); }
   .racers { gap: 8px; margin-top: 12px; }
   .duel-play { margin-top: 12px; min-height: 116px; }
   .clip-tag { margin-bottom: 10px; }
+  .watch .clip-tag { display: none; }
+  .watch .clip-body { padding-top: 10px; }
 }
 
 /* the feed is built for portrait; a sideways phone gets a nudge instead of a squashed layout */
