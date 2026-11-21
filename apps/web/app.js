@@ -205,6 +205,7 @@ function reviewFace(clip) {
     case "quiz":  return { prompt: clip.q.replace("___", clip.answer), answer: clip.sub };
     case "speak": return { prompt: clip.line, answer: clip.meaning };
     case "flip":  return { prompt: clip.front, answer: `${clip.reading} · ${clip.meaning}` };
+    case "watch": return { prompt: clip.line, answer: clip.meaning };
   }
   return { prompt: "", answer: "" };
 }
@@ -401,6 +402,17 @@ function bodyHTML(clip) {
           <span class="face front"><b class="${/[぀-ヿ一-鿿]/.test(clip.front) ? ([...clip.front].length > 2 ? "jp long" : "jp") : "word"}" ${inLang}>${esc(clip.front)}</b><small>tap to flip</small></span>
           <span class="face back"><b>${esc(clip.reading)}</b><span>${esc(clip.meaning)}</span><small>${esc(clip.note)}</small></span>
         </button>`;
+    case "watch":
+      // Like, save and share sit under the video, as on YouTube: the floating rail would cover
+      // the player, and YouTube's rules don't allow anything in front of it.
+      return `${tag}
+        <p class="clip-q watch-line" ${inLang}>${esc(clip.line)}</p>
+        <p class="clip-sub">${esc(clip.meaning)}</p>
+        <div class="watch-actions">
+          <button data-act="like" aria-pressed="false"><span aria-hidden="true">♥</span>Like</button>
+          <button data-act="save" aria-pressed="false"><span aria-hidden="true">🔖</span>Save</button>
+          <button data-act="share"><span aria-hidden="true">↗</span>Share</button>
+        </div>`;
   }
   return "";
 }
@@ -414,7 +426,23 @@ function clipEl(kind, theme, inner, data = {}) {
   return el;
 }
 
+// A scene from a YouTube video. The video's own thumbnail stands in until the player covers it.
+function renderWatch(clip) {
+  const video = encodeURIComponent(clip.video);
+  const poster = `https://i.ytimg.com/vi/${video}/hqdefault.jpg`;
+  const el = clipEl("watch", "ink", `
+    <div class="watch-slot ${clip.shape === "tall" ? "tall" : "wide"}"><img class="watch-poster" src="${poster}" alt="" decoding="async"></div>
+    <div class="clip-body">${bodyHTML(clip)}</div>
+    <div class="clip-meta">
+      <a class="watch-source" href="https://www.youtube.com/watch?v=${video}&amp;t=${Math.floor(clip.start)}s" target="_blank" rel="noopener">▶ ${esc(clip.channel)} on YouTube</a>
+      <p class="caption">${esc(clip.caption)}</p>
+    </div>`, { id: clip.id });
+  el.style.setProperty("--poster", `url("${poster}")`);
+  return el;
+}
+
 function renderContent(clip) {
+  if (clip.kind === "watch") return renderWatch(clip);
   const sound = { vocab: "original sound", quiz: "quick fire", speak: "speak-back", flip: "word stories" }[clip.kind];
   return clipEl(clip.kind, KIND_THEME[clip.kind], `<div class="clip-body">${bodyHTML(clip)}</div>${metaHTML(clip, sound)}`, { id: clip.id });
 }
@@ -562,6 +590,9 @@ const onEnter = {
     persist();
     renderHud();
   },
+  watch(el) {
+    onEnter.flip(el);
+  },
 };
 
 function setActive(el) {
@@ -587,10 +618,17 @@ const saveBtn = $("#rail .save");
 
 function updateRail() {
   const id = active?.dataset.id;
-  $("#rail").classList.toggle("hidden", !id);
+  $("#rail").classList.toggle("hidden", !id || active.dataset.kind === "watch");
   if (!id) return;
   const liked = state.liked.includes(id);
   const saved = state.saved.includes(id);
+  // watch clips carry their own row of the same buttons
+  for (const [act, on] of [["like", liked], ["save", saved]]) {
+    const b = $(`.watch-actions [data-act="${act}"]`, active);
+    if (!b) continue;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", String(on));
+  }
   likeBtn.classList.toggle("on", liked);
   likeBtn.setAttribute("aria-pressed", String(liked));
   saveBtn.classList.toggle("on", saved);
@@ -651,7 +689,7 @@ let lastTap = 0;
 let downAt = null;
 feedEl.addEventListener("pointerdown", (e) => { downAt = { x: e.clientX, y: e.clientY }; });
 feedEl.addEventListener("pointerup", (e) => {
-  if (e.target.closest("button") || !downAt) return;
+  if (e.target.closest("button, a") || !downAt) return;
   if (Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 10) { lastTap = 0; return; }
   const now = Date.now();
   if (now - lastTap < 320 && active?.dataset.id) {
@@ -689,6 +727,8 @@ feedEl.addEventListener("click", (e) => {
     return;
   }
   if (btn.classList.contains("go-foryou")) return switchMode("foryou");
+  // a watch clip's action row works the rail's buttons, so both behave the same
+  if (btn.dataset.act) return $(`#rail .${btn.dataset.act}`).click();
 
   switch (el.dataset.kind) {
     case "quiz": return answerQuiz(el, clip, btn);

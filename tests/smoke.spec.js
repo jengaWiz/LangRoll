@@ -480,6 +480,43 @@ test.describe("app", () => {
     });
   });
 
+  test.describe("watch clips", () => {
+    test.use({ serviceWorkers: "block" });
+
+    test("show the scene with its own like, save and share row", async ({ page }) => {
+      const problems = watchForErrors(page);
+      await withWatchClips(page);
+      await page.goto("/app/");
+      await onboard(page);
+      const clip = await scrollToKind(page, "watch");
+      const id = await clip.getAttribute("data-id");
+      const scene = SCENES.find((s) => s.id === id);
+
+      // the floating rail would sit over the video, so it steps aside for the clip's own row
+      await expect(page.locator("#rail")).toHaveClass(/\bhidden\b/);
+      await expect(clip.locator(".watch-poster")).toHaveAttribute("src", `https://i.ytimg.com/vi/${scene.video}/hqdefault.jpg`);
+      await expect(clip.locator(".watch-source")).toHaveAttribute("href", `https://www.youtube.com/watch?v=${scene.video}&t=${Math.floor(scene.start)}s`);
+      await expect(clip.locator(".watch-source")).toContainText(scene.channel);
+      await expect(clip.locator(".watch-line")).toHaveAttribute("lang", "es-MX");
+
+      const like = clip.locator('[data-act="like"]');
+      await like.click();
+      await expect(like).toHaveAttribute("aria-pressed", "true");
+      const save = clip.locator('[data-act="save"]');
+      await save.click();
+      await expect(save).toHaveAttribute("aria-pressed", "true");
+      expect(await page.evaluate((id) => [state.liked.includes(id), state.saved.includes(id), Boolean(state.cards[id])], id)).toEqual([true, true, true]);
+
+      // and comes back on the next clip that isn't a scene
+      await page.locator("#feed").evaluate((f) => {
+        const next = [...f.querySelectorAll(".clip.active ~ .clip[data-id]")].find((c) => c.dataset.kind !== "watch");
+        f.scrollTo({ top: next.offsetTop, behavior: "instant" });
+      });
+      await expect(page.locator("#rail")).not.toHaveClass(/\bhidden\b/);
+      expect(problems).toEqual([]);
+    });
+  });
+
   test.describe("on a 4-inch phone", () => {
     test.use({ viewport: { width: 320, height: 568 } });
 
@@ -511,30 +548,60 @@ test.describe("app", () => {
     test("every clip in every language fits", async ({ page }) => {
       await page.goto("/app/");
       await onboard(page);
-      const ids = await page.evaluate(() => Object.entries(LANGS).flatMap(([lang, L]) => L.clips.map((c) => [lang, c.id])));
-      const problems = [];
-      for (const [lang, id] of ids) {
-        const result = await page.evaluate(async ([lang, id]) => {
-          state.lang = lang;
-          const el = renderContent(clipById(id));
-          document.querySelector("#feed").replaceChildren(el);
-          setActive(el);
-          for (let moving; (moving = el.getAnimations({ subtree: true }).filter((a) => a instanceof CSSTransition)).length;) {
-            await Promise.all(moving.map((a) => a.finished.catch(() => {})));
-          }
-          const meta = el.querySelector(".clip-meta").getBoundingClientRect();
-          const shown = [...el.querySelectorAll(".clip-body *")].filter((c) => c.getBoundingClientRect().height && !c.closest(".back, .score, .self-rate"));
-          const overlap = Math.max(...shown.map((c) => c.getBoundingClientRect().bottom)) - meta.top;
-          const tooWide = shown.filter((c) => c.getBoundingClientRect().right > el.getBoundingClientRect().right + 1).map((c) => c.className || c.tagName);
-          return { overlap, tooWide };
-        }, [lang, id]);
-        if (result.overlap > 1) problems.push(`${id} runs ${Math.round(result.overlap)}px into its caption`);
-        if (result.tooWide.length) problems.push(`${id} is too wide: ${result.tooWide.join(", ")}`);
-      }
-      expect(problems).toEqual([]);
+      expect(await clipFitProblems(page)).toEqual([]);
+    });
+
+    test("watch clips fit, wide or tall", async ({ page }) => {
+      // the stand-in clips are added by routing, which a service worker would bypass in WebKit
+      await withWatchClips(page);
+      await page.goto("/app/");
+      await onboard(page);
+      expect(await clipFitProblems(page, "watch")).toEqual([]);
     });
   });
 });
+
+// Renders each clip on its own and reports any that run into the caption or off the side.
+async function clipFitProblems(page, kind) {
+  const ids = await page.evaluate((kind) => Object.entries(LANGS).flatMap(([lang, L]) => L.clips.filter((c) => !kind || c.kind === kind).map((c) => [lang, c.id])), kind);
+  expect(ids.length, "found clips to check").toBeGreaterThan(0);
+  const problems = [];
+  for (const [lang, id] of ids) {
+    const result = await page.evaluate(async ([lang, id]) => {
+      state.lang = lang;
+      const el = renderContent(clipById(id));
+      document.querySelector("#feed").replaceChildren(el);
+      setActive(el);
+      for (let moving; (moving = el.getAnimations({ subtree: true }).filter((a) => a instanceof CSSTransition)).length;) {
+        await Promise.all(moving.map((a) => a.finished.catch(() => {})));
+      }
+      const meta = el.querySelector(".clip-meta").getBoundingClientRect();
+      const shown = [...el.querySelectorAll(".clip-body *, .watch-slot")].filter((c) => c.getBoundingClientRect().height && !c.closest(".back, .score, .self-rate"));
+      const overlap = Math.max(...shown.map((c) => c.getBoundingClientRect().bottom)) - meta.top;
+      const tooWide = shown.filter((c) => c.getBoundingClientRect().right > el.getBoundingClientRect().right + 1).map((c) => c.className || c.tagName);
+      return { overlap, tooWide };
+    }, [lang, id]);
+    if (result.overlap > 1) problems.push(`${id} runs ${Math.round(result.overlap)}px into its caption`);
+    if (result.tooWide.length) problems.push(`${id} is too wide: ${result.tooWide.join(", ")}`);
+  }
+  return problems;
+}
+
+// No watch clips have shipped yet, so tests add their own: a long wide one and a tall one.
+// YouTube's thumbnails are stood in for, so tests never touch the network.
+const SCENES = [
+  { id: "es-wtest1", kind: "watch", tag: "At the market", caption: "how people really haggle at a market stall in Mexico City", video: "aaaaaaaaaaa", start: 12, end: 16.5, line: "¿Me lo deja en cincuenta pesos, por favor?", meaning: "Will you let me have it for fifty pesos, please?", channel: "Mercados de México TV" },
+  { id: "es-wtest2", kind: "watch", tag: "Greetings", caption: "a quick hello", video: "bbbbbbbbbbb", start: 3, end: 6, shape: "tall", line: "¿Qué onda?", meaning: "What's up?", channel: "Short Channel" },
+];
+const PIXEL = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
+
+async function withWatchClips(page) {
+  await page.route("**/content.js*", async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: `${await res.text()}\nLANGS.es.clips.push(...${JSON.stringify(SCENES)});` });
+  });
+  await page.route("https://i.ytimg.com/**", (route) => route.fulfill({ contentType: "image/png", body: PIXEL }));
+}
 
 async function onboard(page) {
   await page.locator("#lang-grid button").first().click();
