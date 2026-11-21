@@ -480,6 +480,44 @@ test.describe("app", () => {
     });
   });
 
+  test.describe("voice", () => {
+    test.use({ serviceWorkers: "block" });
+
+    test("plays the natural recording, and the phone's voice for anything not recorded", async ({ page }) => {
+      const problems = watchForErrors(page);
+      await page.addInitScript(() => {
+        // record what would be heard instead of playing it; "broken.mp3" acts like a file that won't load
+        window.played = [];
+        window.spoken = [];
+        HTMLMediaElement.prototype.play = function () {
+          window.played.push(new URL(this.src).pathname);
+          return this.src.endsWith("broken.mp3") ? Promise.reject(new DOMException("no", "NotSupportedError")) : Promise.resolve();
+        };
+        if (window.SpeechSynthesis) SpeechSynthesis.prototype.speak = (u) => window.spoken.push(u.text);
+      });
+      await page.goto("/app/");
+      const [a, b, c] = await page.evaluate(() => LANGS.es.clips.filter((x) => x.kind === "vocab").slice(0, 3));
+      await page.route("**/audio/manifest.json", (route) => route.fulfill({ json: { es: { [a.term]: "es/a.mp3", [c.term]: "es/broken.mp3" } } }));
+      await page.route("**/audio/es/*.mp3", (route) => route.fulfill({ contentType: "audio/mpeg", body: "stand-in" }));
+      await page.reload();
+      await onboard(page);
+      await layFeed(page, [a.id, b.id, c.id]);
+
+      await page.locator(".clip.active .play").click();
+      await expect.poll(() => page.evaluate(() => window.played.at(-1))).toMatch(/\/audio\/es\/a\.mp3$/);
+
+      await scrollToClip(page, 1); // not recorded
+      await page.locator(".clip.active .play").click();
+      await expect.poll(() => page.evaluate(() => window.spoken.at(-1))).toBe(b.term);
+
+      await scrollToClip(page, 2); // recorded, but the file won't load
+      await page.locator(".clip.active .play").click();
+      await expect.poll(() => page.evaluate(() => window.spoken.at(-1))).toBe(c.term);
+      expect(await page.evaluate((a) => window.spoken.includes(a), a.term)).toBe(false);
+      expect(problems).toEqual([]);
+    });
+  });
+
   test.describe("watch clips", () => {
     test.use({ serviceWorkers: "block" });
 

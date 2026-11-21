@@ -1,17 +1,18 @@
 // Offline app shell. Bump VERSION whenever app files change so phones pick up the update.
-const VERSION = "langroll-v20";
+const VERSION = "langroll-v21";
 const SHELL = [
   "./",
   "index.html",
   "app.css?v=11",
   "content.js?v=8",
   "srs.js?v=4",
-  "app.js?v=16",
+  "app.js?v=17",
   "config.js?v=1",
   "sync.js?v=4",
   "watch.js?v=3",
   "vendor/supabase-js-2.118.0.js",
   "privacy.html",
+  "audio/manifest.json",
   "manifest.webmanifest",
   "icon.svg",
   "icon-192.png",
@@ -34,9 +35,12 @@ self.addEventListener("activate", (e) => {
 // Supabase auth, goes straight to the network: caching them would replay stale, per-user
 // responses forever.
 const FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
+// Voice recordings are left to the browser's own cache: audio is fetched in byte ranges, which
+// Safari won't play from a service worker's cache. Offline, the phone's voice stands in.
 function cacheable(request) {
   if (request.method !== "GET") return false;
   const url = new URL(request.url);
+  if (url.origin === self.location.origin && /\/audio\/.+\.mp3$/.test(url.pathname)) return false;
   return url.origin === self.location.origin || FONT_HOSTS.includes(url.hostname);
 }
 

@@ -235,13 +235,45 @@ const IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform
 let silentHintShown = false;
 let lastUtterance = null;
 
+// Natural recordings of every word and line, made by scripts/generate-audio.mjs with a native
+// speaker's voice. The phone's built-in voice is only a fallback, for text not recorded yet.
+let recordings = {};
+fetch("audio/manifest.json")
+  .then((r) => (r.ok ? r.json() : {}))
+  .then((m) => { recordings = m; })
+  .catch(() => { /* offline before the first visit: the phone's voice still works */ });
+// One element for every recording: once a tap has let it play, iPhones let it play again.
+const voicePlayer = new Audio();
+voicePlayer.preload = "auto";
+
+function recordingFor(text) {
+  const file = recordings[state.lang]?.[String(text).trim()];
+  return file ? `audio/${file}` : null;
+}
+
 // cancel() right before speak() can swallow the next utterance, so only cancel real playback
 function stopSpeech() {
+  if (!voicePlayer.paused) voicePlayer.pause();
   if (window.speechSynthesis && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
 }
 
 // `force` means the user tapped a sound button, so failures are worth telling them about
 function speak(text, force = false) {
+  if (!state.sound && !force) return false;
+  const src = recordingFor(text);
+  if (!src) return speakWithVoice(text, force);
+  stopSpeech();
+  voicePlayer.src = src;
+  voicePlayer.currentTime = 0;
+  voicePlayer.play().catch((e) => {
+    // AbortError: another line started first. NotAllowedError: no tap yet, so stay quiet.
+    // Anything else means the file didn't load, so say it with the phone's voice instead.
+    if (e.name !== "AbortError" && e.name !== "NotAllowedError") speakWithVoice(text, force);
+  });
+  return true;
+}
+
+function speakWithVoice(text, force) {
   if (!window.speechSynthesis || (!state.sound && !force)) return false;
   const code = lang().speech;
   const u = new SpeechSynthesisUtterance(text);
