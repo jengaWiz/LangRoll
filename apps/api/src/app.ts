@@ -7,6 +7,8 @@ import { eventRoutes } from "./routes/events.js";
 import { feedbackRoutes } from "./routes/feedback.js";
 import { healthRoutes } from "./routes/health.js";
 import { meRoutes } from "./routes/me.js";
+import { speechRoutes } from "./routes/speech.js";
+import type { SpeechAssessor } from "./speech.js";
 import { security } from "./security.js";
 
 export interface ApiError {
@@ -16,6 +18,8 @@ export interface ApiError {
 export interface Deps {
   db: Db;
   verifyToken: VerifyToken;
+  // Scores spoken attempts. Left out when no speech service is configured.
+  assessSpeech?: SpeechAssessor | undefined;
 }
 
 // Builds the app without listening, so tests can drive it with app.inject().
@@ -74,6 +78,7 @@ export function buildApp(config: Config, deps: Deps): FastifyInstance {
   app.register(meRoutes, { verifyToken: deps.verifyToken, db: deps.db });
   app.register(eventRoutes, { verifyToken: deps.verifyToken, db: deps.db });
   app.register(feedbackRoutes, { verifyToken: deps.verifyToken, db: deps.db });
+  app.register(speechRoutes, { verifyToken: deps.verifyToken, assess: deps.assessSpeech });
 
   return app;
 }
