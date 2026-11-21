@@ -23,6 +23,8 @@ primary_region = "iad"
   CORS_ORIGINS = "https://jengawiz.github.io"
   # Fly's edge proxy sits in front of the app.
   TRUST_PROXY_HOPS = "1"
+  # Azure Speech region for pronunciation scoring. The key is a Fly secret (AZURE_SPEECH_KEY).
+  AZURE_SPEECH_REGION = "eastus"
   # Encrypt the database connection and verify Supabase's certificate (its own CA, shipped in the image).
   DATABASE_CA = "/app/certs/supabase-prod-ca-2021.crt"
 

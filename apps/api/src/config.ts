@@ -38,6 +38,10 @@ const Env = z
   // How many proxies sit in front of the API (the host's load balancer is usually 1), so the
   // client IP for rate limiting comes from X-Forwarded-For. 0 trusts no proxy headers.
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+  // Azure AI Speech, for scoring pronunciation in speaking practice. Without a key, the endpoint
+  // answers 503 and the app uses the phone's own speech recognition.
+  AZURE_SPEECH_KEY: z.string().min(1).optional(),
+  AZURE_SPEECH_REGION: z.string().regex(/^[a-z0-9]+$/, "must be an Azure region like eastus").default("eastus"),
 })
   .refine((env) => env.NODE_ENV !== "production" || env.SUPABASE_URL.startsWith("https://"), {
     path: ["SUPABASE_URL"],
