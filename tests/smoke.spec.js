@@ -525,8 +525,8 @@ test.describe("app", () => {
       await onboard(page);
       const seen = new Set();
       for (let i = 0; i < 20 && seen.size < 5; i++) {
-        await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.children[i].offsetTop, behavior: "instant" }), i);
-        const clip = page.locator(`#feed > :nth-child(${i + 1})`);
+        await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.querySelectorAll(".clip")[i].offsetTop, behavior: "instant" }), i);
+        const clip = page.locator("#feed .clip").nth(i);
         await expect(clip).toHaveClass(/\bactive\b/);
         const { kind, overlap } = await clip.evaluate(async (el) => {
           // content slides up as a clip becomes active; measure where it settles
@@ -613,9 +613,9 @@ async function onboard(page) {
 // Scroll the feed until a clip of this kind is active (the feed is shuffled, so keep loading).
 async function scrollToKind(page, kind) {
   for (let n = 0; n < 12; n++) {
-    const i = await page.locator("#feed").evaluate((f, kind) => [...f.children].findIndex((c) => c.dataset.kind === kind), kind);
-    const target = i >= 0 ? i : await page.locator("#feed").evaluate((f) => f.children.length - 1);
-    await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.children[i].offsetTop, behavior: "instant" }), target);
+    const i = await page.locator("#feed").evaluate((f, kind) => [...f.querySelectorAll(".clip")].findIndex((c) => c.dataset.kind === kind), kind);
+    const target = i >= 0 ? i : await page.locator("#feed").evaluate((f) => f.querySelectorAll(".clip").length - 1);
+    await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.querySelectorAll(".clip")[i].offsetTop, behavior: "instant" }), target);
     if (i >= 0) {
       const clip = page.locator(`#feed .clip.active[data-kind="${kind}"]`);
       await expect(clip).toHaveCount(1);
