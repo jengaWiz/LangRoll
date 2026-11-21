@@ -11,6 +11,9 @@
 //   or jumps. So each scene starts a few seconds before its line, and loops back to there: the
 //   overlay plays over that run-up, and the line itself always plays clean. The line under the
 //   video lights up while it's being said.
+// - YouTube's own controls are on. A tap on the video brings up its play and sound buttons, which
+//   work in every browser, because Safari only allows sound after a tap inside the video itself.
+//   They appear with the title, so they too fall in the run-up rather than over the line.
 // YouTube's rules (developers.google.com/youtube/terms/developer-policies) shape the rest: a
 // player on show is visible and tappable with its branding, nothing is drawn over it, and
 // nothing plays off screen.
@@ -19,6 +22,7 @@ const Watch = (() => {
   const LOOKAHEAD = 3;        // create the next scene's player if it's within this many clips
   const BLOCKED_AFTER = 1200; // ms to wait for sound before deciding the browser blocked it
   const RUN_UP = 4.5;         // seconds of run-up: YouTube's overlay lasted up to 4s in testing
+  const REVEAL_AFTER = 700;   // ms: show a player that hasn't started by now, so it can be pressed
 
   // Where a scene starts playing, and where it loops back to.
   const from = (clip) => Math.max(0, clip.start - RUN_UP);
@@ -82,7 +86,7 @@ const Watch = (() => {
       width: "100%",
       height: "100%",
       videoId: clip.video,
-      playerVars: { start: Math.floor(from(clip)), playsinline: 1, controls: 0, rel: 0, iv_load_policy: 3, fs: 0, disablekb: 1, origin: location.origin },
+      playerVars: { start: Math.floor(from(clip)), playsinline: 1, controls: 1, rel: 0, iv_load_policy: 3, fs: 0, disablekb: 1, origin: location.origin },
       events: {
         onReady: () => { p.ready = true; p.queued.splice(0).forEach((fn) => fn()); },
         onStateChange: (e) => stateChanged(p, e.data),
@@ -94,6 +98,7 @@ const Watch = (() => {
 
   function close(p) {
     players.delete(p.el);
+    clearTimeout(p.revealTimer);
     p.el.classList.remove("playing", "speaking");
     if (p === current) {
       current = null;
@@ -163,18 +168,23 @@ const Watch = (() => {
       if (p !== current) return;
       if (hooks.sound()) p.yt.unMute(); else p.yt.mute();
       p.yt.playVideo();
+      // A browser that won't start a video out of sight (or at all) gets it shown anyway, with
+      // YouTube's play button, rather than leaving the thumbnail up.
+      p.revealTimer = setTimeout(() => { if (p === current) p.wrap.classList.add("live"); }, REVEAL_AFTER);
       tick();
       if (!p.yt.isMuted()) checkSound(p);
     });
   }
 
   // Browsers only play sound after a tap. If this one blocked it, play muted and say how to fix it.
-  function checkSound(p) {
+  // `asked` is whether the learner just pressed the sound button: if even that was blocked, only
+  // YouTube's own sound button, inside the video, will do.
+  function checkSound(p, asked = false) {
     setTimeout(() => {
       if (p !== current || p.yt.getPlayerState() === YT.PlayerState.PLAYING) return;
       p.yt.mute();
       p.yt.playVideo();
-      hooks.hint(p.el);
+      hooks.hint(asked ? "in-video" : "button");
       updateControls(p);
     }, BLOCKED_AFTER);
   }
@@ -238,7 +248,7 @@ const Watch = (() => {
     if (on) {
       p.yt.unMute();
       p.yt.playVideo();
-      checkSound(p);
+      checkSound(p, true);
     } else {
       p.yt.mute();
     }

@@ -928,14 +928,16 @@ li.due .deck-due { color: var(--violet); }
 }
 .watch-actions button.on { background: #fff; color: var(--ink); }
 .watch-actions .watch-sound { width: 40px; justify-content: center; padding: 0; }
+/* a quiet credit, so it doesn't read as a play button */
 .watch-source {
   display: inline-block;
   margin-bottom: 6px;
   padding: 2px 0;
   color: inherit;
-  font-size: 0.9rem;
-  font-weight: 800;
+  font-size: 0.8rem;
+  font-weight: 600;
   text-decoration: none;
+  opacity: 0.75;
 }
 
 /* short phones (4-inch iPhone SE and similar): tighten clips so lessons clear the caption */
