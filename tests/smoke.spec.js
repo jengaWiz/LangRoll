@@ -1,4 +1,4 @@
-/* global Sync, clipById, LANGS, state, renderContent, setActive, observer, nextItem, Watch -- the app's globals, used only inside page.evaluate callbacks */
+/* global Sync, clipById, LANGS, state, renderContent, setActive, observer, nextItem, Watch, Recorder -- the app's globals, used only inside page.evaluate callbacks */
 import { expect, test } from "@playwright/test";
 
 // Fail on any JS error, console error, or broken same-origin request.
@@ -236,8 +236,8 @@ test.describe("app", () => {
     const today = () => new Date().toLocaleDateString("en-CA");
     const noProgress = () => ({ totalXp: 0, today: { day: today(), xp: 0, goalXp: 30, goalHit: false }, streak: { current: 0, longest: 0 } });
 
-    async function fakeBackend(page, { signupFails = false, events, progress = noProgress, cards = () => [], deleteStatus = 204 } = {}) {
-      const calls = { signups: 0, profiles: [], uploads: [], pulls: 0, feedback: [], deletes: [] };
+    async function fakeBackend(page, { signupFails = false, events, progress = noProgress, cards = () => [], deleteStatus = 204, assess } = {}) {
+      const calls = { signups: 0, profiles: [], uploads: [], pulls: 0, feedback: [], deletes: [], speech: [] };
       await page.route(`${SUPABASE}/auth/v1/**`, async (route) => {
         if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
         if (!route.request().url().includes("/signup")) return route.fulfill({ status: 404, headers: cors, json: {} });
@@ -262,6 +262,13 @@ test.describe("app", () => {
         if (req.method() === "POST" && req.url().endsWith("/feedback")) {
           calls.feedback.push(req.postDataJSON());
           return route.fulfill({ status: 201, headers: cors, json: { id: USER } });
+        }
+        if (req.method() === "POST" && req.url().endsWith("/speech/assess")) {
+          const body = req.postDataJSON();
+          calls.speech.push(body);
+          // without an `assess` stand-in, answer as the API does with no Azure key
+          if (!assess) return route.fulfill({ status: 503, headers: cors, json: {} });
+          return route.fulfill({ headers: cors, json: assess(body) });
         }
         if (req.method() === "DELETE" && req.url().endsWith("/me")) {
           calls.deletes.push(req.headers().authorization);
@@ -289,6 +296,106 @@ test.describe("app", () => {
       }, [API, SUPABASE]);
       return calls;
     }
+
+    // A stand-in microphone: a steady tone, so recording works the same in every test browser.
+    const fakeMic = (page) => page.addInitScript(() => {
+      // on the prototype: WebKit ignores assigning it on navigator.mediaDevices itself
+      Object.defineProperty(MediaDevices.prototype, "getUserMedia", {
+        configurable: true,
+        value: async () => {
+          const ctx = new AudioContext();
+          const tone = ctx.createOscillator();
+          const out = ctx.createMediaStreamDestination();
+          tone.connect(out);
+          tone.start();
+          return out.stream;
+        },
+      });
+    });
+
+    // a two-word-or-longer Spanish speaking clip, alone in the feed
+    async function speakingClip(page) {
+      const clip = await page.evaluate(() => LANGS.es.clips.find((c) => c.kind === "speak" && c.line.split(/\s+/).length >= 2));
+      await layFeed(page, [clip.id]);
+      return clip;
+    }
+
+    test("scores speaking on the server and marks how each word came out", async ({ page }) => {
+      const problems = watchForErrors(page);
+      await fakeMic(page);
+      const calls = await fakeBackend(page, {
+        assess: ({ text }) => ({
+          status: "ok", heard: text, score: 72, accuracy: 70, fluency: 80, completeness: 100,
+          words: text.split(/\s+/).map((w, i) => ({ word: w.toLowerCase(), accuracy: i === 1 ? 40 : 95, error: i === 1 ? "Mispronunciation" : "None" })),
+        }),
+      });
+      await page.goto("/app/");
+      await onboard(page);
+      const clip = await speakingClip(page);
+      const words = clip.line.split(/\s+/);
+
+      const mic = page.locator(".clip.active .mic");
+      await mic.click();
+      await expect(page.locator(".clip.active .mic-hint")).toContainText("say it, then tap the mic");
+      await page.waitForTimeout(600);
+      await mic.click(); // done
+      await expect.poll(() => calls.speech.length).toBe(1);
+
+      // the attempt: the line, its language, and a 16 kHz mono 16-bit WAV
+      const sent = calls.speech[0];
+      expect(sent).toMatchObject({ lang: "es", text: clip.line });
+      const wav = Buffer.from(sent.audio, "base64");
+      expect(wav.toString("ascii", 0, 4) + wav.toString("ascii", 8, 12)).toBe("RIFFWAVE");
+      expect([wav.readUInt16LE(22), wav.readUInt32LE(24), wav.readUInt16LE(34)]).toEqual([1, 16000, 16]);
+      expect(wav.length).toBeGreaterThan(44 + 16000 * 2 * 0.3);
+
+      await expect(page.locator(".clip.active .score-ring b")).toHaveText("72");
+      await expect(page.locator(".clip.active .speak-line .w.work")).toHaveText(words[1]);
+      await expect(page.locator(".clip.active .speak-line .w.good").first()).toHaveText(words[0]);
+      await expect.poll(() => calls.uploads.flat().find((e) => e.kind === "speech_scored")?.payload.score).toBe(72);
+
+      // trying again puts the line back as it was
+      await page.locator(".clip.active .again").click();
+      await expect(page.locator(".clip.active .speak-line")).toHaveText(clip.line);
+      await expect(page.locator(".clip.active .speak-line .w")).toHaveCount(0);
+      expect(problems).toEqual([]);
+    });
+
+    test("doesn't send a recording too short to hold any speech", async ({ page }) => {
+      await fakeMic(page);
+      const calls = await fakeBackend(page, { assess: () => ({ status: "ok", heard: "", score: 0, words: [] }) });
+      await page.goto("/app/");
+      await onboard(page);
+      await speakingClip(page);
+      const mic = page.locator(".clip.active .mic");
+      await mic.click();
+      await expect(page.locator(".clip.active .mic-hint")).toContainText("say it, then tap the mic");
+      await page.evaluate(() => Recorder.stop()); // stopped the instant it opened
+      await expect(page.locator(".clip.active .mic-hint")).toContainText("didn't catch that");
+      expect(calls.speech).toHaveLength(0);
+    });
+
+    test("lets the learner rate themselves when the server can't score, then stops asking it", async ({ page }) => {
+      await fakeMic(page);
+      const calls = await fakeBackend(page); // /speech/assess answers 503, as with no Azure key
+      await page.goto("/app/");
+      await onboard(page);
+      await speakingClip(page);
+
+      const mic = page.locator(".clip.active .mic");
+      await mic.click();
+      await expect(page.locator(".clip.active .mic-hint")).toContainText("say it, then tap the mic");
+      await page.waitForTimeout(600);
+      await mic.click();
+      await expect(page.locator(".clip.active .mic-hint")).toContainText("couldn't check that one");
+      await page.locator('.clip.active .self-rate [data-rate="good"]').click();
+      await expect(page.locator(".clip.active .score-ring b")).toHaveText("90");
+
+      await page.locator(".clip.active .again").click();
+      await mic.click(); // now the phone's own recognition, not the server
+      await page.waitForTimeout(500);
+      expect(calls.speech).toHaveLength(1);
+    });
 
     test("signs in as a guest once and saves the learner's profile", async ({ page }) => {
       const problems = watchForErrors(page);
