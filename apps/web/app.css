@@ -261,6 +261,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tab i:empty { display: none; }
 
 .feed {
+  position: relative; /* video players are placed in it, over their clips, and scroll with them */
   height: 100%;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
@@ -882,7 +883,25 @@ li.due .deck-due { color: var(--violet); }
   border-radius: 14px;
 }
 .watch-poster { display: block; width: 100%; height: 100%; object-fit: cover; }
-.watch .clip-body { flex: none; padding-top: 14px; }
+/* the YouTube player, moved over the slot of the clip it's playing (see watch.js) */
+.watch-player { position: absolute; z-index: 2; overflow: hidden; background: #000; }
+.watch-player.tall { border-radius: 14px; }
+.watch-player iframe { display: block; width: 100%; height: 100%; border: 0; }
+.watch-progress { flex: none; height: 3px; margin-inline: -18px; background: rgba(255, 255, 255, 0.18); }
+.watch-slot.tall + .watch-progress { align-self: center; width: min(100%, 200px); margin: 6px 0 0; border-radius: 3px; }
+.watch-progress i { display: block; height: 100%; background: #fff; transform: scaleX(var(--watch-done, 0)); transform-origin: left; }
+.unavailable .watch-slot::after {
+  content: "This video can't play here. Swipe for the next one.";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(13, 11, 12, 0.75);
+  font-weight: 700;
+  text-align: center;
+}
+.watch .clip-body { flex: none; padding-top: 12px; }
 .watch .clip-meta { margin-top: auto; }
 .watch-line { margin: 0; }
 .watch-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
@@ -902,6 +921,7 @@ li.due .deck-due { color: var(--violet); }
   cursor: pointer;
 }
 .watch-actions button.on { background: #fff; color: var(--ink); }
+.watch-actions .watch-sound { width: 40px; justify-content: center; padding: 0; }
 .watch-source {
   display: inline-block;
   margin-bottom: 6px;

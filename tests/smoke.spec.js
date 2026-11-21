@@ -1,4 +1,4 @@
-/* global Sync, clipById, LANGS, state, renderContent, setActive -- the app's globals, used only inside page.evaluate callbacks */
+/* global Sync, clipById, LANGS, state, renderContent, setActive, observer, nextItem, Watch -- the app's globals, used only inside page.evaluate callbacks */
 import { expect, test } from "@playwright/test";
 
 // Fail on any JS error, console error, or broken same-origin request.
@@ -515,6 +515,123 @@ test.describe("app", () => {
       await expect(page.locator("#rail")).not.toHaveClass(/\bhidden\b/);
       expect(problems).toEqual([]);
     });
+
+    test.describe("playback", () => {
+      // a word clip, two scenes, then another word clip
+      let ids;
+      test.beforeEach(async ({ page }) => {
+        await withWatchClips(page);
+        await page.goto("/app/");
+        await onboard(page);
+        const words = await page.evaluate(() => LANGS.es.clips.filter((c) => c.kind === "vocab").map((c) => c.id));
+        ids = [words[0], "es-wtest1", "es-wtest2", words[1]];
+        await layFeed(page, ids);
+        // wait until the first scene is loaded on a player sitting over its new clip, so tests
+        // don't catch a player still holding it from the opening feed
+        await page.waitForFunction(() => {
+          const slot = document.querySelector('#feed .clip[data-id="es-wtest1"] .watch-slot').getBoundingClientRect();
+          return window.yt?.players.some((p) => p.video === "aaaaaaaaaaa" && p.state === 2 && Math.abs(p.frame.getBoundingClientRect().top - slot.top) < 1);
+        });
+      });
+
+      // The player most recently given this video. The opening feed may already have used the
+      // players, so tests compare against what they see rather than assume fresh ones.
+      const player = (page, video) => page.evaluate((video) => {
+        const p = window.yt.players.filter((q) => q.video === video).sort((a, b) => b.cue - a.cue)[0];
+        return p && { index: window.yt.players.indexOf(p), state: p.state, muted: p.muted, loads: p.loads, t: p.t, seeks: p.seeks };
+      }, video);
+      const A = "aaaaaaaaaaa";
+      const B = "bbbbbbbbbbb";
+      const fake = (page, video, fn) => page.evaluate(([video, fn]) => {
+        const p = window.yt.players.filter((q) => q.video === video).sort((a, b) => b.cue - a.cue)[0];
+        new Function("p", "yt", fn)(p, window.yt);
+      }, [video, fn]);
+      const PLAYING = 1;
+      const PAUSED = 2;
+
+      test("loads the next scene ahead, plays it on screen, and reuses two players", async ({ page }) => {
+        const problems = watchForErrors(page);
+        // on the word clip, the scene below is already loaded and waiting at its start
+        await expect.poll(() => player(page, A)).toMatchObject({ state: PAUSED, t: 12 });
+        const ahead = await player(page, A);
+
+        // the same player plays it, without loading it again
+        await scrollToClip(page, 1);
+        await expect.poll(() => player(page, A)).toMatchObject({ index: ahead.index, loads: ahead.loads, state: PLAYING });
+        await expect.poll(() => player(page, B)).toMatchObject({ state: PAUSED });
+        // the player sits exactly over the clip's video slot
+        const [slot, frame] = await page.evaluate(() => [
+          document.querySelector(".clip.active .watch-slot").getBoundingClientRect().toJSON(),
+          window.yt.players.find((p) => p.video === "aaaaaaaaaaa" && p.state === 1).frame.getBoundingClientRect().toJSON(),
+        ]);
+        for (const k of ["top", "left", "width", "height"]) expect(Math.abs(frame[k] - slot[k]), k).toBeLessThanOrEqual(1);
+
+        const next = await player(page, B);
+        await scrollToClip(page, 2);
+        await expect.poll(() => player(page, B)).toMatchObject({ index: next.index, loads: next.loads, state: PLAYING });
+        expect((await player(page, A)).state).not.toBe(PLAYING);
+
+        await scrollToClip(page, 3);
+        await expect.poll(() => player(page, B)).toMatchObject({ state: PAUSED });
+        expect(await page.locator("#feed iframe").count()).toBe(2);
+        expect(problems).toEqual([]);
+      });
+
+      test("loops the scene and fills its progress bar", async ({ page }) => {
+        await scrollToClip(page, 1);
+        await expect.poll(() => player(page, A)).toMatchObject({ state: PLAYING });
+        await fake(page, A, "p.t = 14.25"); // halfway through 12–16.5
+        await expect.poll(() => page.locator(".clip.active").evaluate((el) => Number(el.style.getPropertyValue("--watch-done")))).toBeCloseTo(0.5, 1);
+        await fake(page, A, "p.seeks = []; p.t = 16.5");
+        await expect.poll(async () => (await player(page, A)).seeks).toContain(12);
+      });
+
+      test("pauses when you leave the feed and plays again when you're back", async ({ page }) => {
+        await scrollToClip(page, 1);
+        await expect.poll(() => player(page, A)).toMatchObject({ state: PLAYING });
+        await page.locator('#tabbar [data-screen="deck"]').click();
+        await expect.poll(() => player(page, A)).toMatchObject({ state: PAUSED });
+        await page.locator('#tabbar [data-screen="feed"]').click();
+        await expect.poll(() => player(page, A)).toMatchObject({ state: PLAYING });
+      });
+
+      test("plays muted when the browser blocks sound, then turns it on from the button", async ({ page }) => {
+        await page.evaluate(() => { window.yt.blockSound = true; });
+        await scrollToClip(page, 1);
+        await expect.poll(() => player(page, A), { timeout: 5000 }).toMatchObject({ state: PLAYING, muted: true });
+        await expect(page.locator("#toast")).toContainText("Tap the video");
+        const sound = page.locator(".clip.active .watch-sound");
+        await expect(sound).toHaveAttribute("aria-pressed", "false");
+
+        await page.evaluate(() => { window.yt.blockSound = false; });
+        await sound.click();
+        await expect.poll(() => player(page, A)).toMatchObject({ state: PLAYING, muted: false });
+        await expect(sound).toHaveAttribute("aria-pressed", "true");
+        expect(await page.evaluate(() => state.sound)).toBe(true);
+      });
+
+      test("drops a scene that can't play before you reach it", async ({ page }) => {
+        await expect.poll(() => player(page, A)).toMatchObject({ state: PAUSED }); // loaded, waiting
+        await fake(page, A, "p.fail(150)"); // embedding turned off
+        await expect(page.locator('#feed .clip[data-id="es-wtest1"]')).toHaveCount(0);
+        expect(await page.evaluate(() => Watch.usable(clipById("es-wtest1")))).toBe(false);
+      });
+    });
+
+    test("the feed carries on without scenes when YouTube can't be reached", async ({ page }) => {
+      const errors = [];
+      page.on("pageerror", (e) => errors.push(e.message));
+      await withWatchClips(page);
+      await page.route("https://www.youtube.com/iframe_api", (route) => route.abort());
+      await page.goto("/app/");
+      await onboard(page);
+      await layFeed(page, ["es-wtest1"]);
+      await expect(page.locator(".clip.active")).toHaveClass(/\bunavailable\b/);
+      // and no more scenes are dealt into the feed
+      const kinds = await page.evaluate(() => Array.from({ length: 60 }, () => nextItem().dataset.kind));
+      expect(kinds).not.toContain("watch");
+      expect(errors).toEqual([]);
+    });
   });
 
   test.describe("on a 4-inch phone", () => {
@@ -525,8 +642,8 @@ test.describe("app", () => {
       await onboard(page);
       const seen = new Set();
       for (let i = 0; i < 20 && seen.size < 5; i++) {
-        await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.children[i].offsetTop, behavior: "instant" }), i);
-        const clip = page.locator(`#feed > :nth-child(${i + 1})`);
+        await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.querySelectorAll(".clip")[i].offsetTop, behavior: "instant" }), i);
+        const clip = page.locator("#feed .clip").nth(i);
         await expect(clip).toHaveClass(/\bactive\b/);
         const { kind, overlap } = await clip.evaluate(async (el) => {
           // content slides up as a clip becomes active; measure where it settles
@@ -588,12 +705,32 @@ async function clipFitProblems(page, kind) {
 }
 
 // No watch clips have shipped yet, so tests add their own: a long wide one and a tall one.
-// YouTube's thumbnails are stood in for, so tests never touch the network.
+// YouTube's thumbnails and player are stood in for, so tests never touch the network.
 const SCENES = [
   { id: "es-wtest1", kind: "watch", tag: "At the market", caption: "how people really haggle at a market stall in Mexico City", video: "aaaaaaaaaaa", start: 12, end: 16.5, line: "¿Me lo deja en cincuenta pesos, por favor?", meaning: "Will you let me have it for fifty pesos, please?", channel: "Mercados de México TV" },
   { id: "es-wtest2", kind: "watch", tag: "Greetings", caption: "a quick hello", video: "bbbbbbbbbbb", start: 3, end: 6, shape: "tall", line: "¿Qué onda?", meaning: "What's up?", channel: "Short Channel" },
 ];
 const PIXEL = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
+
+// Replaces the feed with these clips, in order, with the first on screen.
+async function layFeed(page, ids) {
+  await page.evaluate((ids) => {
+    const feed = document.querySelector("#feed");
+    for (const c of feed.querySelectorAll(".clip")) c.remove();
+    for (const id of ids) {
+      const el = renderContent(clipById(id));
+      feed.appendChild(el);
+      observer.observe(el);
+    }
+    feed.scrollTop = 0;
+    setActive(feed.querySelector(".clip"));
+  }, ids);
+}
+
+async function scrollToClip(page, i) {
+  await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.querySelectorAll(".clip")[i].offsetTop, behavior: "instant" }), i);
+  await expect(page.locator("#feed .clip").nth(i)).toHaveClass(/\bactive\b/);
+}
 
 async function withWatchClips(page) {
   await page.route("**/content.js*", async (route) => {
@@ -601,6 +738,44 @@ async function withWatchClips(page) {
     await route.fulfill({ response: res, body: `${await res.text()}\nLANGS.es.clips.push(...${JSON.stringify(SCENES)});` });
   });
   await page.route("https://i.ytimg.com/**", (route) => route.fulfill({ contentType: "image/png", body: PIXEL }));
+  await page.route("https://www.youtube.com/iframe_api", (route) => route.fulfill({ contentType: "text/javascript", body: `(${fakeYouTube})()` }));
+}
+
+// Stands in for YouTube's IFrame Player API (developers.google.com/youtube/iframe_api_reference).
+// It records what the app asks of each player in window.yt, and tests move time on by setting t.
+// Set yt.blockSound to act like a browser that won't play sound before a tap.
+function fakeYouTube() {
+  const yt = (window.yt = { players: [], blockSound: false, cues: 0 });
+  const S = { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 };
+  class Player {
+    constructor(mount, opts) {
+      this.opts = opts;
+      this.frame = document.createElement("iframe");
+      mount.replaceWith(this.frame);
+      Object.assign(this, { video: opts.videoId, t: opts.playerVars.start, cue: ++yt.cues, muted: false, state: S.UNSTARTED, loads: 1, seeks: [] });
+      yt.players.push(this);
+      setTimeout(() => opts.events.onReady({ target: this }), 20);
+    }
+    set(s) {
+      this.state = s;
+      setTimeout(() => this.opts.events.onStateChange({ target: this, data: s }), 0);
+    }
+    cueVideoById({ videoId, startSeconds }) { Object.assign(this, { video: videoId, t: startSeconds, cue: ++yt.cues }); this.loads++; this.set(S.CUED); }
+    loadVideoById(video) { this.cueVideoById(video); this.playVideo(); }
+    playVideo() { this.set(yt.blockSound && !this.muted ? S.PAUSED : S.PLAYING); }
+    pauseVideo() { this.set(S.PAUSED); }
+    stopVideo() { this.set(S.CUED); }
+    seekTo(t) { this.t = t; this.seeks.push(t); }
+    mute() { this.muted = true; }
+    unMute() { this.muted = false; }
+    isMuted() { return this.muted; }
+    getCurrentTime() { return this.t; }
+    getPlayerState() { return this.state; }
+    fail(code = 150) { this.opts.events.onError({ target: this, data: code }); }
+    destroy() { this.frame.remove(); }
+  }
+  window.YT = { Player, PlayerState: S };
+  setTimeout(() => window.onYouTubeIframeAPIReady?.(), 0);
 }
 
 async function onboard(page) {
@@ -613,9 +788,9 @@ async function onboard(page) {
 // Scroll the feed until a clip of this kind is active (the feed is shuffled, so keep loading).
 async function scrollToKind(page, kind) {
   for (let n = 0; n < 12; n++) {
-    const i = await page.locator("#feed").evaluate((f, kind) => [...f.children].findIndex((c) => c.dataset.kind === kind), kind);
-    const target = i >= 0 ? i : await page.locator("#feed").evaluate((f) => f.children.length - 1);
-    await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.children[i].offsetTop, behavior: "instant" }), target);
+    const i = await page.locator("#feed").evaluate((f, kind) => [...f.querySelectorAll(".clip")].findIndex((c) => c.dataset.kind === kind), kind);
+    const target = i >= 0 ? i : await page.locator("#feed").evaluate((f) => f.querySelectorAll(".clip").length - 1);
+    await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.querySelectorAll(".clip")[i].offsetTop, behavior: "instant" }), target);
     if (i >= 0) {
       const clip = page.locator(`#feed .clip.active[data-kind="${kind}"]`);
       await expect(clip).toHaveCount(1);

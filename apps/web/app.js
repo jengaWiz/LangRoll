@@ -409,6 +409,7 @@ function bodyHTML(clip) {
         <p class="clip-q watch-line" ${inLang}>${esc(clip.line)}</p>
         <p class="clip-sub">${esc(clip.meaning)}</p>
         <div class="watch-actions">
+          <button class="watch-sound" aria-label="Turn sound on" aria-pressed="false">🔇</button>
           <button data-act="like" aria-pressed="false"><span aria-hidden="true">♥</span>Like</button>
           <button data-act="save" aria-pressed="false"><span aria-hidden="true">🔖</span>Save</button>
           <button data-act="share"><span aria-hidden="true">↗</span>Share</button>
@@ -426,12 +427,14 @@ function clipEl(kind, theme, inner, data = {}) {
   return el;
 }
 
-// A scene from a YouTube video. The video's own thumbnail stands in until the player covers it.
+// A scene from a YouTube video. The video's own thumbnail stands in until a player (watch.js)
+// is moved over it.
 function renderWatch(clip) {
   const video = encodeURIComponent(clip.video);
   const poster = `https://i.ytimg.com/vi/${video}/hqdefault.jpg`;
   const el = clipEl("watch", "ink", `
     <div class="watch-slot ${clip.shape === "tall" ? "tall" : "wide"}"><img class="watch-poster" src="${poster}" alt="" decoding="async"></div>
+    <div class="watch-progress" aria-hidden="true"><i></i></div>
     <div class="clip-body">${bodyHTML(clip)}</div>
     <div class="clip-meta">
       <a class="watch-source" href="https://www.youtube.com/watch?v=${video}&amp;t=${Math.floor(clip.start)}s" target="_blank" rel="noopener">▶ ${esc(clip.channel)} on YouTube</a>
@@ -519,10 +522,17 @@ function nextItem() {
     sinceDuel = 0;
     return renderDuel();
   }
-  if (!queue.length) queue = shuffle(lang().clips);
+  // scenes drop out when YouTube can't be reached or a video stops playing
+  const playable = (c) => c.kind !== "watch" || Watch.usable(c);
+  let clip = queue.shift();
+  while (clip && !playable(clip)) clip = queue.shift();
+  if (!clip) {
+    queue = shuffle(lang().clips.filter(playable));
+    clip = queue.shift();
+  }
   sinceReview++;
   sinceDuel++;
-  return renderContent(queue.shift());
+  return renderContent(clip);
 }
 
 function appendBatch(n = 5) {
@@ -536,7 +546,8 @@ function appendBatch(n = 5) {
 
 function buildFeed() {
   stopClipTimers();
-  feedEl.innerHTML = "";
+  // only the clips: the video players stay, so they don't have to load again
+  for (const c of $$(".clip", feedEl)) c.remove();
   active = null;
   rendered = 0;
   queue = [];
@@ -553,13 +564,30 @@ function buildFeed() {
     appendBatch(6);
   }
   // activate now rather than waiting for the observer, so the first clip never renders blank
-  setActive(feedEl.firstElementChild);
+  setActive($(".clip", feedEl));
   $$(".top-tabs .tab").forEach((t) => t.classList.toggle("active", t.dataset.mode === mode));
 }
 
 // =========================================================
 // Active clip
 // =========================================================
+Watch.init(feedEl, {
+  // Sound needs an earlier tap; before one, scenes start muted rather than not at all.
+  sound: () => state.sound && navigator.userActivation?.hasBeenActive !== false,
+  setSound(on) { state.sound = on; persist(); },
+  hint() { toast("🔇 Tap the video once to hear it"); },
+  // A scene that can't play: drop it if it's still ahead, otherwise say so where it would be.
+  unavailable(el) {
+    const ahead = active && el !== active && active.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING;
+    if (ahead && el.isConnected) {
+      observer.unobserve(el);
+      el.remove();
+    } else {
+      el.classList.add("unavailable");
+    }
+  },
+});
+
 const observer = new IntersectionObserver((entries) => {
   entries.forEach((e) => { if (e.isIntersecting) setActive(e.target); });
 }, { root: feedEl, threshold: 0.6 });
@@ -605,6 +633,7 @@ function setActive(el) {
   $("#feed-screen").dataset.tone = el.classList.contains("clip-peach") ? "light" : "";
   updateRail();
   onEnter[el.dataset.kind]?.(el);
+  Watch.show(el);
 
   const idx = $$(".clip", feedEl).indexOf(el);
   if (mode === "foryou" && idx >= rendered - 3) appendBatch();
@@ -727,6 +756,7 @@ feedEl.addEventListener("click", (e) => {
     return;
   }
   if (btn.classList.contains("go-foryou")) return switchMode("foryou");
+  if (btn.classList.contains("watch-sound")) return Watch.toggleSound();
   // a watch clip's action row works the rail's buttons, so both behave the same
   if (btn.dataset.act) return $(`#rail .${btn.dataset.act}`).click();
 
@@ -981,10 +1011,10 @@ function show(name) {
   Object.entries(screens).forEach(([k, el]) => { el.hidden = k !== name; });
   $("#tabbar").hidden = name === "onboard";
   $$("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.screen === name));
-  if (name !== "feed") stopSpeech();
+  if (name !== "feed") { stopSpeech(); Watch.pause(); }
   if (name === "deck") renderDeck();
   if (name === "me") renderMe();
-  if (name === "feed") renderHud();
+  if (name === "feed") { renderHud(); Watch.show(active); }
 }
 
 function switchMode(m) {
@@ -1219,7 +1249,8 @@ if (state.lang) {
 // refresh due counts while the app stays open, and the server's numbers when it comes back
 setInterval(renderHud, 30000);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) return;
+  if (document.hidden) return; // watch.js pauses the video itself
+  if (!screens.feed.hidden) Watch.show(active);
   renderHud();
   refreshFromServer();
 });
