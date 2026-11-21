@@ -427,8 +427,8 @@ function clipEl(kind, theme, inner, data = {}) {
   return el;
 }
 
-// A scene from a YouTube video. The video's own thumbnail stands in until a player (watch.js)
-// is moved over it.
+// A scene from a YouTube video. The video's own thumbnail shows until a player (watch.js)
+// starts playing over it.
 function renderWatch(clip) {
   const video = encodeURIComponent(clip.video);
   const poster = `https://i.ytimg.com/vi/${video}/hqdefault.jpg`;
@@ -647,7 +647,9 @@ const saveBtn = $("#rail .save");
 
 function updateRail() {
   const id = active?.dataset.id;
-  $("#rail").classList.toggle("hidden", !id || active.dataset.kind === "watch");
+  const overVideo = active?.dataset.kind === "watch";
+  $("#rail").classList.toggle("hidden", !id || overVideo);
+  $("#rail").classList.toggle("over-video", overVideo);
   if (!id) return;
   const liked = state.liked.includes(id);
   const saved = state.saved.includes(id);

@@ -622,6 +622,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   transition: opacity 0.25s ease;
 }
 .rail.hidden { opacity: 0; pointer-events: none; }
+/* on a scene the rail goes at once rather than fading out over the video */
+.rail.over-video { transition: none; }
 .act {
   display: flex;
   flex-direction: column;
@@ -883,8 +885,10 @@ li.due .deck-due { color: var(--violet); }
   border-radius: 14px;
 }
 .watch-poster { display: block; width: 100%; height: 100%; object-fit: cover; }
-/* the YouTube player, moved over the slot of the clip it's playing (see watch.js) */
-.watch-player { position: absolute; z-index: 2; overflow: hidden; background: #000; }
+/* the YouTube player, placed over its clip's slot (see watch.js). It waits behind the thumbnail
+   and comes out with its first frame, so a scene never shows a player waiting to be pressed. */
+.watch-player { position: absolute; z-index: 2; overflow: hidden; opacity: 0; pointer-events: none; transition: opacity 0.18s ease; }
+.watch-player.live { opacity: 1; pointer-events: auto; }
 .watch-player.tall { border-radius: 14px; }
 .watch-player iframe { display: block; width: 100%; height: 100%; border: 0; }
 .watch-progress { flex: none; height: 3px; margin-inline: -18px; background: rgba(255, 255, 255, 0.18); }
@@ -903,7 +907,9 @@ li.due .deck-due { color: var(--violet); }
 }
 .watch .clip-body { flex: none; padding-top: 12px; }
 .watch .clip-meta { margin-top: auto; }
-.watch-line { margin: 0; }
+.watch-line { margin: 0; transition: opacity 0.25s ease; }
+/* while a scene plays, its line is dimmed during the run-up and lights up as it's said */
+.watch.playing:not(.speaking) .watch-line { opacity: 0.45; }
 .watch-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .watch-actions button {
   display: inline-flex;
