@@ -607,7 +607,7 @@ test.describe("app", () => {
         await page.evaluate(() => { window.yt.blockSound = true; });
         await scrollToClip(page, 1);
         await expect.poll(() => player(page, A), { timeout: 5000 }).toMatchObject({ state: PLAYING, muted: true });
-        await expect(page.locator("#toast")).toContainText("Tap the video");
+        await expect(page.locator("#toast")).toContainText("Tap 🔇 under the video");
         const sound = page.locator(".clip.active .watch-sound");
         await expect(sound).toHaveAttribute("aria-pressed", "false");
 
@@ -616,6 +616,11 @@ test.describe("app", () => {
         await expect.poll(() => player(page, A)).toMatchObject({ state: PLAYING, muted: false });
         await expect(sound).toHaveAttribute("aria-pressed", "true");
         expect(await page.evaluate(() => state.sound)).toBe(true);
+
+        await sound.click(); // off again
+        await page.evaluate(() => { window.yt.blockSound = true; });
+        await sound.click();
+        await expect(page.locator("#toast")).toContainText("YouTube's sound button", { timeout: 5000 });
       });
 
       test("drops a scene that can't play before you reach it", async ({ page }) => {

@@ -437,7 +437,7 @@ function renderWatch(clip) {
     <div class="watch-progress" aria-hidden="true"><i></i></div>
     <div class="clip-body">${bodyHTML(clip)}</div>
     <div class="clip-meta">
-      <a class="watch-source" href="https://www.youtube.com/watch?v=${video}&amp;t=${Math.floor(clip.start)}s" target="_blank" rel="noopener">▶ ${esc(clip.channel)} on YouTube</a>
+      <a class="watch-source" href="https://www.youtube.com/watch?v=${video}&amp;t=${Math.floor(clip.start)}s" target="_blank" rel="noopener">Scene from ${esc(clip.channel)} · YouTube ↗</a>
       <p class="caption">${esc(clip.caption)}</p>
     </div>`, { id: clip.id });
   el.style.setProperty("--poster", `url("${poster}")`);
@@ -575,7 +575,9 @@ Watch.init(feedEl, {
   // Sound needs an earlier tap; before one, scenes start muted rather than not at all.
   sound: () => state.sound && navigator.userActivation?.hasBeenActive !== false,
   setSound(on) { state.sound = on; persist(); },
-  hint() { toast("🔇 Tap the video once to hear it"); },
+  hint(how) {
+    toast(how === "in-video" ? "🔇 Tap the video, then YouTube's sound button" : "🔇 Sound is off. Tap 🔇 under the video", 3000);
+  },
   // A scene that can't play: drop it if it's still ahead, otherwise say so where it would be.
   unavailable(el) {
     const ahead = active && el !== active && active.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING;
