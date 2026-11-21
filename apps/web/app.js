@@ -867,10 +867,72 @@ const MIC_ERRORS = {
   "mic-timeout": "the mic never opened. allow microphone access and try again, or rate yourself",
 };
 
+// Pronunciation scoring on our server (Azure, see apps/api/src/speech.ts), when signed in. If the
+// server can't score, the rest of the visit uses the phone's own recognition instead.
+let serverScoring = true;
+const canScoreOnServer = () => serverScoring && Sync.enabled && Recorder.supported;
+
+async function scoreOnServer(el, clip, hint) {
+  el.classList.add("listening", "recording");
+  hint.textContent = "starting the mic…";
+  stopSpeech(); // playback and recording fight over the audio session on iOS
+  let take;
+  try {
+    take = await Recorder.record({ onOpen: () => { hint.textContent = "listening… say it, then tap the mic"; } });
+  } catch (err) {
+    el.classList.remove("listening", "recording");
+    hint.textContent = MIC_ERRORS[err?.name === "NotAllowedError" ? "not-allowed" : "audio-capture"];
+    $(".self-rate", el).hidden = false;
+    return;
+  }
+  el.classList.remove("recording");
+  // nothing usable was captured: ask again rather than pay to score silence
+  if (take.seconds < 0.3) {
+    el.classList.remove("listening");
+    hint.textContent = "didn't catch that. tap the mic and say it again";
+    return;
+  }
+  hint.textContent = "checking how it sounded…";
+  try {
+    const result = await Sync.api("POST", "/speech/assess", { lang: state.lang, text: clip.line, audio: Recorder.toBase64(take.wav) });
+    if (result.status === "no_speech") {
+      hint.textContent = "didn't hear anything. tap the mic and speak up";
+      return;
+    }
+    hint.textContent = result.heard ? `heard: "${result.heard}"` : "";
+    showWords(el, clip, result.words);
+    showScore(el, clip, result.score);
+  } catch (err) {
+    if (err.status === 429) {
+      hint.textContent = "that's a lot of tries! wait a moment, then go again";
+      return;
+    }
+    serverScoring = false;
+    hint.textContent = "couldn't check that one. how did it sound?";
+    $(".self-rate", el).hidden = false;
+  } finally {
+    el.classList.remove("listening");
+  }
+}
+
+// Shows the line word by word, marked by how each word came out. Where the scorer's words line
+// up with the line's own, the line keeps its spelling and punctuation; otherwise (Japanese, which
+// has no spaces, or a different split) the scorer's words are shown.
+function showWords(el, clip, words) {
+  const said = (words || []).filter((w) => w.error !== "Insertion");
+  if (!said.length) return;
+  const mark = (w) => (w.error === "Omission" ? "missed" : w.accuracy >= 80 ? "good" : w.accuracy >= 60 ? "ok" : "work");
+  const own = clip.line.split(/\s+/);
+  const lineUp = state.lang !== "ja" && own.length === said.length;
+  const shown = said.map((w, i) => `<span class="w ${mark(w)}" title="${w.accuracy}%">${esc(lineUp ? own[i] : w.word)}</span>`);
+  $(".speak-line", el).innerHTML = shown.join(state.lang === "ja" ? "" : " ");
+}
+
 async function speakBack(el, clip, btn) {
   const hint = $(".mic-hint", el);
   if (btn.classList.contains("again")) {
     el.classList.remove("scored");
+    $(".speak-line", el).textContent = clip.line;
     hint.textContent = Recognition ? "tap the mic and say it" : "say it out loud, then rate yourself";
     return;
   }
@@ -878,7 +940,13 @@ async function speakBack(el, clip, btn) {
     $(".self-rate", el).hidden = true;
     return showScore(el, clip, btn.dataset.rate === "good" ? 90 : 40);
   }
-  if (!btn.classList.contains("mic") || el.classList.contains("listening")) return;
+  if (!btn.classList.contains("mic")) return;
+  // a second tap while recording means "done"
+  if (el.classList.contains("listening")) {
+    if (el.classList.contains("recording")) Recorder.stop();
+    return;
+  }
+  if (canScoreOnServer()) return scoreOnServer(el, clip, hint);
 
   if (!Recognition) {
     $(".self-rate", el).hidden = false;

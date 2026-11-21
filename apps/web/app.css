@@ -495,6 +495,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .speak.listening .mic-ring { animation-duration: 0.7s; border-color: #fff; }
 @keyframes ring { from { transform: scale(0.9); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
 .mic-hint { margin: 12px 0 0; font-size: 0.82rem; opacity: 0.9; }
+/* after scoring, each word of the line shows how it came out */
+.speak-line .w { border-radius: 4px; text-decoration-thickness: 3px; text-underline-offset: 6px; }
+.speak-line .w.ok { text-decoration-line: underline; text-decoration-style: dotted; }
+.speak-line .w.work { text-decoration-line: underline; text-decoration-style: wavy; text-decoration-color: #ffd23f; }
+.speak-line .w.missed { opacity: 0.4; text-decoration-line: line-through; }
 .speak.listening .mic-hint::after { content: "…"; }
 .self-rate { display: flex; gap: 8px; margin-top: 12px; }
 
