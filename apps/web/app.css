@@ -907,7 +907,9 @@ li.due .deck-due { color: var(--violet); }
 }
 .watch .clip-body { flex: none; padding-top: 12px; }
 .watch .clip-meta { margin-top: auto; }
-.watch-line { margin: 0; }
+.watch-line { margin: 0; transition: opacity 0.25s ease; }
+/* while a scene plays, its line is dimmed during the run-up and lights up as it's said */
+.watch.playing:not(.speaking) .watch-line { opacity: 0.45; }
 .watch-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .watch-actions button {
   display: inline-flex;

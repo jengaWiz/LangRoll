@@ -7,7 +7,10 @@
 //   once paused, YouTube keeps its title and controls over the video for several seconds after
 //   it plays again. Coming back to a scene starts a fresh player.
 // - A player lives in the feed, placed over its clip's slot, so it scrolls with the clip natively.
-// - The scene loops between its start and end, like a short video.
+// - YouTube shows its title and logo over the video for about 3 seconds whenever a video starts
+//   or jumps. So each scene starts a few seconds before its line, and loops back to there: the
+//   overlay plays over that run-up, and the line itself always plays clean. The line under the
+//   video lights up while it's being said.
 // YouTube's rules (developers.google.com/youtube/terms/developer-policies) shape the rest: a
 // player on show is visible and tappable with its branding, nothing is drawn over it, and
 // nothing plays off screen.
@@ -15,6 +18,10 @@ const Watch = (() => {
   const API = "https://www.youtube.com/iframe_api";
   const LOOKAHEAD = 3;        // create the next scene's player if it's within this many clips
   const BLOCKED_AFTER = 1200; // ms to wait for sound before deciding the browser blocked it
+  const RUN_UP = 4.5;         // seconds of run-up: YouTube's overlay lasted up to 4s in testing
+
+  // Where a scene starts playing, and where it loops back to.
+  const from = (clip) => Math.max(0, clip.start - RUN_UP);
 
   const players = new Map(); // clip element -> { wrap, yt, ready, queued, el, clip }
   const broken = new Set(); // videos that can't play here (removed, or embedding turned off)
@@ -75,7 +82,7 @@ const Watch = (() => {
       width: "100%",
       height: "100%",
       videoId: clip.video,
-      playerVars: { start: Math.floor(clip.start), playsinline: 1, controls: 0, rel: 0, iv_load_policy: 3, fs: 0, disablekb: 1, origin: location.origin },
+      playerVars: { start: Math.floor(from(clip)), playsinline: 1, controls: 0, rel: 0, iv_load_policy: 3, fs: 0, disablekb: 1, origin: location.origin },
       events: {
         onReady: () => { p.ready = true; p.queued.splice(0).forEach((fn) => fn()); },
         onStateChange: (e) => stateChanged(p, e.data),
@@ -87,6 +94,7 @@ const Watch = (() => {
 
   function close(p) {
     players.delete(p.el);
+    p.el.classList.remove("playing", "speaking");
     if (p === current) {
       current = null;
       clearInterval(tickTimer);
@@ -174,9 +182,12 @@ const Watch = (() => {
   function stateChanged(p, s) {
     if (p !== current) return;
     // the player comes out from behind the thumbnail with its first frame
-    if (s === YT.PlayerState.PLAYING) p.wrap.classList.add("live");
+    if (s === YT.PlayerState.PLAYING) {
+      p.wrap.classList.add("live");
+      p.el.classList.add("playing");
+    }
     // a scene that runs to the end of the video loops too
-    if (s === YT.PlayerState.ENDED) { p.yt.seekTo(p.clip.start, true); p.yt.playVideo(); }
+    if (s === YT.PlayerState.ENDED) { p.yt.seekTo(from(p.clip), true); p.yt.playVideo(); }
     updateControls(p);
   }
 
@@ -190,17 +201,22 @@ const Watch = (() => {
     hooks.unavailable(p.el);
   }
 
-  // Loops the scene and moves its progress bar.
+  // Loops the scene, moves its progress bar through the line, and lights the line up while
+  // it's being said.
   function tick() {
     clearInterval(tickTimer);
     tickTimer = setInterval(() => {
       const p = current;
       if (!p?.ready) return clearInterval(tickTimer);
       const { start, end } = p.clip;
-      const t = p.yt.getCurrentTime();
-      if (t >= end - 0.05) p.yt.seekTo(start, true);
+      let t = p.yt.getCurrentTime();
+      if (t >= end - 0.05) {
+        t = from(p.clip);
+        p.yt.seekTo(t, true);
+      }
       const done = Math.min(1, Math.max(0, (t - start) / (end - start)));
       p.el.style.setProperty("--watch-done", done.toFixed(3));
+      p.el.classList.toggle("speaking", t >= start - 0.15 && t < end);
     }, 100);
   }
 

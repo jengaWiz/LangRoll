@@ -551,7 +551,8 @@ test.describe("app", () => {
       test("loads the next scene out of sight, plays it on screen, and closes it after", async ({ page }) => {
         const problems = watchForErrors(page);
         // on the word clip, the scene below is loaded and waiting, hidden behind its thumbnail
-        await expect.poll(() => player(page, A)).toMatchObject({ state: CUED, t: 12, shown: false });
+        // it starts 4.5s before the line (at 12s), so YouTube's opening overlay plays over the run-up
+        await expect.poll(() => player(page, A)).toMatchObject({ state: CUED, t: 7, shown: false });
         const ahead = await player(page, A);
 
         // the same player plays it, without loading again, and comes out once it's playing
@@ -578,13 +579,19 @@ test.describe("app", () => {
         expect(problems).toEqual([]);
       });
 
-      test("loops the scene and fills its progress bar", async ({ page }) => {
+      test("loops the scene from its run-up and lights the line while it's said", async ({ page }) => {
         await scrollToClip(page, 1);
         await expect.poll(() => player(page, A)).toMatchObject({ state: PLAYING });
-        await fake(page, A, "p.t = 14.25"); // halfway through 12–16.5
-        await expect.poll(() => page.locator(".clip.active").evaluate((el) => Number(el.style.getPropertyValue("--watch-done")))).toBeCloseTo(0.5, 1);
+        const clip = page.locator(".clip.active");
+        await fake(page, A, "p.t = 9"); // the run-up, before the line at 12s
+        await expect(clip).toHaveClass(/\bplaying\b/);
+        await expect(clip).not.toHaveClass(/\bspeaking\b/);
+        await fake(page, A, "p.t = 14.25"); // halfway through the line, 12–16.5
+        await expect(clip).toHaveClass(/\bspeaking\b/);
+        await expect.poll(() => clip.evaluate((el) => Number(el.style.getPropertyValue("--watch-done")))).toBeCloseTo(0.5, 1);
         await fake(page, A, "p.seeks = []; p.t = 16.5");
-        await expect.poll(async () => (await player(page, A)).seeks).toContain(12);
+        await expect.poll(async () => (await player(page, A)).seeks).toContain(7.5); // back to the run-up
+        await expect(clip).not.toHaveClass(/\bspeaking\b/);
       });
 
       test("stops when you leave the feed and starts afresh when you're back", async ({ page }) => {
