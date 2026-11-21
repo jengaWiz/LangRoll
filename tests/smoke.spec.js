@@ -1,4 +1,4 @@
-/* global Sync, clipById -- the app's globals, used only inside page.evaluate callbacks */
+/* global Sync, clipById, LANGS, state, renderContent, setActive -- the app's globals, used only inside page.evaluate callbacks */
 import { expect, test } from "@playwright/test";
 
 // Fail on any JS error, console error, or broken same-origin request.
@@ -504,6 +504,34 @@ test.describe("app", () => {
         expect(overlap, `${kind} clip runs into its caption`).toBeLessThanOrEqual(1);
       }
       expect(seen.size, "saw every clip kind").toBe(5);
+    });
+
+    // The feed only ever shows a few clips, so check each one directly: a single long phrase in
+    // a content PR shouldn't be able to run into its caption or off the side of a small phone.
+    test("every clip in every language fits", async ({ page }) => {
+      await page.goto("/app/");
+      await onboard(page);
+      const ids = await page.evaluate(() => Object.entries(LANGS).flatMap(([lang, L]) => L.clips.map((c) => [lang, c.id])));
+      const problems = [];
+      for (const [lang, id] of ids) {
+        const result = await page.evaluate(async ([lang, id]) => {
+          state.lang = lang;
+          const el = renderContent(clipById(id));
+          document.querySelector("#feed").replaceChildren(el);
+          setActive(el);
+          for (let moving; (moving = el.getAnimations({ subtree: true }).filter((a) => a instanceof CSSTransition)).length;) {
+            await Promise.all(moving.map((a) => a.finished.catch(() => {})));
+          }
+          const meta = el.querySelector(".clip-meta").getBoundingClientRect();
+          const shown = [...el.querySelectorAll(".clip-body *")].filter((c) => c.getBoundingClientRect().height && !c.closest(".back, .score, .self-rate"));
+          const overlap = Math.max(...shown.map((c) => c.getBoundingClientRect().bottom)) - meta.top;
+          const tooWide = shown.filter((c) => c.getBoundingClientRect().right > el.getBoundingClientRect().right + 1).map((c) => c.className || c.tagName);
+          return { overlap, tooWide };
+        }, [lang, id]);
+        if (result.overlap > 1) problems.push(`${id} runs ${Math.round(result.overlap)}px into its caption`);
+        if (result.tooWide.length) problems.push(`${id} is too wide: ${result.tooWide.join(", ")}`);
+      }
+      expect(problems).toEqual([]);
     });
   });
 });
