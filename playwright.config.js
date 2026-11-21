@@ -12,8 +12,8 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1400, height: 900 } } },
     // Content and service-worker checks don't use a browser, so they run once, on desktop.
-    { name: "mobile", use: { ...devices["Pixel 7"] }, testIgnore: /(content|sw)\.spec\.js/ },
-    { name: "iphone", use: { ...devices["iPhone 15 Pro"] }, testIgnore: /(content|sw)\.spec\.js/ },
+    { name: "mobile", use: { ...devices["Pixel 7"] }, testIgnore: /(content|sw|audio)\.spec\.js/ },
+    { name: "iphone", use: { ...devices["iPhone 15 Pro"] }, testIgnore: /(content|sw|audio)\.spec\.js/ },
   ],
   // Test the assembled dist/ tree, i.e. exactly what the deploy workflow publishes.
   webServer: {

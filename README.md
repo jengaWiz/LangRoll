@@ -23,6 +23,20 @@ Every push to `main` builds `dist/` and publishes it to Pages ([`deploy.yml`](.g
 Speech recognition and the service worker need `https://` or `localhost`; they won't run from `file://`.
 When you change files in `apps/web/`, bump the `?v=` query strings in `apps/web/index.html` and `VERSION` + `SHELL` in `apps/web/sw.js` so installed copies update.
 
+### Audio
+
+Every word and line the app reads aloud is recorded ahead of time with Azure's neural voices (Mexican Spanish, French and Japanese native speakers), in [`apps/web/audio/`](apps/web/audio/). The app plays these, and uses the phone's built-in voice only for text that hasn't been recorded.
+
+After changing lesson content, re-record:
+
+1. Put the Speech key in a `.env` file at the repo root (git ignores it), never in code or chat:
+   ```
+   AZURE_SPEECH_KEY=...
+   AZURE_SPEECH_REGION=eastus
+   ```
+2. Run `npm run audio`. It records only new or changed text and deletes recordings nothing uses.
+3. Commit `apps/web/audio/` with the content change. CI fails if a language has recordings but is missing one.
+
 ## The API
 
 [`apps/api/`](apps/api/) is the backend: a TypeScript [Fastify](https://fastify.dev) service that will own

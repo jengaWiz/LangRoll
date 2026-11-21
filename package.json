@@ -18,6 +18,7 @@
     "build": "node scripts/build-site.mjs",
     "serve": "node scripts/serve.mjs",
     "qr": "node scripts/make-qr.mjs",
+    "audio": "node --env-file-if-exists=.env scripts/generate-audio.mjs",
     "typecheck": "npm run typecheck -w @langroll/api",
     "test:api": "npm test -w @langroll/api",
     "dev:api": "npm run dev -w @langroll/api"
