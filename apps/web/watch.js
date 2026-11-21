@@ -1,20 +1,22 @@
 // Plays the scenes in watch clips with YouTube's embedded player, made to feel like the feed's
 // own video rather than an embed:
-// - Two players are reused for every scene. One plays the clip on screen while the other loads the
-//   next scene ahead, so it starts at once. Reusing them, instead of one iframe per clip, also
-//   keeps sound on across scenes on iPhone once the video has been tapped.
-// - A player lives in the feed and is moved over its clip's slot by position only, because moving
-//   an iframe to another parent reloads it. Being in the feed, it scrolls with the clip natively.
+// - The next scene's player is created ahead, loaded but not playing, so it starts at once.
+//   It stays out of sight behind the video's own thumbnail until its first frame plays, so
+//   swiping in shows a picture instead of a player waiting to be pressed.
+// - A player that has played is closed when its clip is left, never paused to be resumed later:
+//   once paused, YouTube keeps its title and controls over the video for several seconds after
+//   it plays again. Coming back to a scene starts a fresh player.
+// - A player lives in the feed, placed over its clip's slot, so it scrolls with the clip natively.
 // - The scene loops between its start and end, like a short video.
-// YouTube's rules (developers.google.com/youtube/terms/developer-policies) shape the rest: the
-// player stays visible and tappable, nothing is drawn over it, and nothing plays off screen.
+// YouTube's rules (developers.google.com/youtube/terms/developer-policies) shape the rest: a
+// player on show is visible and tappable with its branding, nothing is drawn over it, and
+// nothing plays off screen.
 const Watch = (() => {
   const API = "https://www.youtube.com/iframe_api";
-  const POOL = 2;
-  const LOOKAHEAD = 3;        // load the next scene if it's within this many clips
+  const LOOKAHEAD = 3;        // create the next scene's player if it's within this many clips
   const BLOCKED_AFTER = 1200; // ms to wait for sound before deciding the browser blocked it
 
-  const players = []; // { wrap, yt, ready, queued, el, clip, warming }
+  const players = new Map(); // clip element -> { wrap, yt, ready, queued, el, clip }
   const broken = new Set(); // videos that can't play here (removed, or embedding turned off)
   let api = null;
   let failed = false;
@@ -56,15 +58,18 @@ const Watch = (() => {
     return api;
   }
 
-  // A player is created with its first scene: one created empty reports an error straight away.
-  function createPlayer(YT, clip) {
+  // Creates a player for a scene, loaded at its start and waiting. A player is always created
+  // with its video: one created empty reports an error straight away.
+  function create(YT, el, clip) {
     const wrap = document.createElement("div");
     wrap.className = "watch-player";
-    wrap.hidden = true;
     const mount = document.createElement("div");
     wrap.appendChild(mount);
     feed.appendChild(wrap);
-    const p = { wrap, yt: null, ready: false, queued: [], el: null, clip: null, video: clip.video, warming: false };
+    const p = { wrap, yt: null, ready: false, queued: [], el, clip };
+    players.set(el, p);
+    el.style.setProperty("--watch-done", "0");
+    place(p);
     p.yt = new YT.Player(mount, {
       host: "https://www.youtube-nocookie.com", // YouTube's privacy-enhanced mode
       width: "100%",
@@ -77,8 +82,17 @@ const Watch = (() => {
         onError: (e) => videoFailed(p, e.data),
       },
     });
-    players.push(p);
     return p;
+  }
+
+  function close(p) {
+    players.delete(p.el);
+    if (p === current) {
+      current = null;
+      clearInterval(tickTimer);
+    }
+    p.yt.destroy?.();
+    p.wrap.remove();
   }
 
   // Runs now if the player is ready, otherwise once it is, in the order asked.
@@ -86,11 +100,11 @@ const Watch = (() => {
     if (p.ready) fn(); else p.queued.push(fn);
   }
 
-  // Lines the player up with its clip's video slot.
+  // Lines the player up with its clip's video slot, in fractions of a pixel so no sliver of the
+  // thumbnail shows round the edge.
   function place(p) {
-    const slot = p.el?.querySelector(".watch-slot");
+    const slot = p.el.querySelector(".watch-slot");
     if (!slot || !p.wrap.isConnected) return;
-    // measured in fractions of a pixel, so no sliver of the thumbnail shows round the edge
     const r = slot.getBoundingClientRect();
     const f = feed.getBoundingClientRect();
     Object.assign(p.wrap.style, {
@@ -102,49 +116,21 @@ const Watch = (() => {
     p.wrap.classList.toggle("tall", slot.classList.contains("tall"));
   }
 
-  // Puts a scene on a player and buffers its start, so it plays at once when its clip comes up.
-  function assign(p, el, clip) {
-    p.el = el;
-    p.clip = clip;
-    place(p);
-    p.wrap.hidden = false;
-    const loaded = p.video === clip.video; // a new player already has its first scene
-    p.video = clip.video;
-    whenReady(p, () => {
-      if (p === current) {
-        if (!loaded) p.yt.cueVideoById({ videoId: clip.video, startSeconds: clip.start });
-        return; // play() starts it
-      }
-      // Play muted for a moment to buffer, then stop at the start: stateChanged pauses it.
-      p.warming = true;
-      p.yt.mute();
-      if (loaded) p.yt.playVideo();
-      else p.yt.loadVideoById({ videoId: clip.video, startSeconds: clip.start });
-    });
-  }
-
-  function release(p) {
-    p.el = null;
-    p.clip = null;
-    p.wrap.hidden = true;
-    whenReady(p, () => p.yt.stopVideo());
-  }
-
   // Called whenever the feed's active clip changes, and when the feed comes back into view.
   function show(active) {
     const run = ++generation;
-    // players whose iframe was thrown away with the feed can't be used again
-    for (const p of [...players]) {
-      if (!p.wrap.isConnected) { p.yt.destroy?.(); players.splice(players.indexOf(p), 1); }
-    }
-    pause();
-    current = null;
+    if (current && current.el === active) return; // already playing it
+    // close the scene just left, players thrown away with the feed, and scenes no longer close by
+    if (current) close(current);
     const clips = [...feed.querySelectorAll(".clip")];
     const at = clips.indexOf(active);
     const wanted = [];
     if (active?.dataset.kind === "watch") wanted.push(active);
     const next = clips.slice(at + 1, at + 1 + LOOKAHEAD).find((c) => c.dataset.kind === "watch");
     if (next) wanted.push(next);
+    for (const p of [...players.values()]) {
+      if (!p.el.isConnected || !wanted.includes(p.el)) close(p);
+    }
     if (failed) {
       if (active?.dataset.kind === "watch") hooks.unavailable(active);
       return;
@@ -155,27 +141,18 @@ const Watch = (() => {
       if (run !== generation) return; // the feed has moved on
       for (const el of wanted) {
         const clip = clipById(el.dataset.id);
-        if (!clip || broken.has(clip.video)) continue;
-        let p = players.find((q) => q.el === el);
-        if (!p) {
-          p = players.find((q) => !wanted.includes(q.el)) || (players.length < POOL ? createPlayer(YT, clip) : null);
-          if (!p) continue;
-          if (el === active) current = p; // so assign doesn't warm the one about to play
-          assign(p, el, clip);
-        }
-        if (el === active) play(p);
+        if (clip && !broken.has(clip.video) && !players.has(el)) create(YT, el, clip);
       }
-      players.filter((p) => p.el && !wanted.includes(p.el)).forEach(release);
+      const p = players.get(active);
+      if (p) play(p);
     }, () => {});
   }
 
   function play(p) {
     current = p;
-    p.warming = false;
     place(p);
     whenReady(p, () => {
       if (p !== current) return;
-      p.yt.seekTo(p.clip.start, true);
       if (hooks.sound()) p.yt.unMute(); else p.yt.mute();
       p.yt.playVideo();
       tick();
@@ -185,10 +162,8 @@ const Watch = (() => {
 
   // Browsers only play sound after a tap. If this one blocked it, play muted and say how to fix it.
   function checkSound(p) {
-    const clip = p.clip;
     setTimeout(() => {
-      if (p !== current || p.clip !== clip) return;
-      if (p.yt.getPlayerState() === YT.PlayerState.PLAYING) return;
+      if (p !== current || p.yt.getPlayerState() === YT.PlayerState.PLAYING) return;
       p.yt.mute();
       p.yt.playVideo();
       hooks.hint(p.el);
@@ -197,16 +172,11 @@ const Watch = (() => {
   }
 
   function stateChanged(p, s) {
-    const S = YT.PlayerState;
-    if (s === S.PLAYING && p.warming) {
-      p.warming = false;
-      p.yt.pauseVideo();
-      p.yt.seekTo(p.clip.start, true);
-      return;
-    }
     if (p !== current) return;
-    // A scene that runs to the end of the video loops too.
-    if (s === S.ENDED) { p.yt.seekTo(p.clip.start, true); p.yt.playVideo(); }
+    // the player comes out from behind the thumbnail with its first frame
+    if (s === YT.PlayerState.PLAYING) p.wrap.classList.add("live");
+    // a scene that runs to the end of the video loops too
+    if (s === YT.PlayerState.ENDED) { p.yt.seekTo(p.clip.start, true); p.yt.playVideo(); }
     updateControls(p);
   }
 
@@ -215,12 +185,9 @@ const Watch = (() => {
   const GONE = [100, 101, 150];
 
   function videoFailed(p, code) {
-    if (!p.clip) return;
     if (GONE.includes(code)) broken.add(p.clip.video);
-    const el = p.el;
-    if (p === current) current = null;
-    release(p);
-    hooks.unavailable(el);
+    close(p);
+    hooks.unavailable(p.el);
   }
 
   // Loops the scene and moves its progress bar.
@@ -228,7 +195,7 @@ const Watch = (() => {
     clearInterval(tickTimer);
     tickTimer = setInterval(() => {
       const p = current;
-      if (!p?.ready || !p.clip) return clearInterval(tickTimer);
+      if (!p?.ready) return clearInterval(tickTimer);
       const { start, end } = p.clip;
       const t = p.yt.getCurrentTime();
       if (t >= end - 0.05) p.yt.seekTo(start, true);
@@ -238,7 +205,7 @@ const Watch = (() => {
   }
 
   function updateControls(p) {
-    const btn = p.el?.querySelector(".watch-sound");
+    const btn = p.el.querySelector(".watch-sound");
     if (!btn || !p.ready) return;
     const muted = p.yt.isMuted();
     btn.textContent = muted ? "🔇" : "🔊";
@@ -262,9 +229,10 @@ const Watch = (() => {
     updateControls(p);
   }
 
+  // Leaving the feed or the app: close the playing scene rather than pause it (see the top).
   function pause() {
-    clearInterval(tickTimer);
-    if (current?.ready) current.yt.pauseVideo();
+    generation++;
+    if (current) close(current);
   }
 
   return { init, usable, show, pause, toggleSound };
