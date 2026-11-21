@@ -360,23 +360,26 @@ function metaHTML(clip, sound) {
 function bodyHTML(clip) {
   const L = lang();
   const tag = `<span class="clip-tag">${L.flag} ${esc(L.name)} · ${esc(clip.tag)}</span>`;
+  // Marks text in the language being learned, so screen readers use the right voice and the
+  // browser applies that language's line-breaking rules. English text around it stays unmarked.
+  const inLang = `lang="${L.speech}"`;
   switch (clip.kind) {
     case "vocab":
       return `${tag}
-        <p class="clip-big">${esc(clip.term)}</p>
+        <p class="clip-big" ${inLang}>${esc(clip.term)}</p>
         <p class="clip-sub">${esc(clip.meaning)}</p>
         <div class="phonetic">${clip.phon.map((p, i) => `<span class="${i === clip.hit ? "hit" : ""}">${esc(p)}</span>`).join("")}</div>
         <button class="play" aria-label="Hear it"><span class="wave" aria-hidden="true">${WAVE}</span><b>🔊 Hear it</b></button>`;
     case "quiz":
       return `${tag}
-        <p class="clip-q">${esc(clip.q)}</p>
+        <p class="clip-q" ${inLang}>${esc(clip.q)}</p>
         <p class="clip-sub">${esc(clip.sub)}</p>
-        <div class="options">${shuffle(clip.options).map((o) => `<button class="opt" data-v="${esc(o)}">${esc(o)}</button>`).join("")}</div>
+        <div class="options">${shuffle(clip.options).map((o) => `<button class="opt" data-v="${esc(o)}" ${inLang}>${esc(o)}</button>`).join("")}</div>
         <p class="quiz-result" aria-live="polite"></p>`;
     case "speak":
       return `${tag}
         <p class="clip-sub">Say it out loud</p>
-        <p class="clip-big speak-line">${esc(clip.line)}</p>
+        <p class="clip-big speak-line" ${inLang}>${esc(clip.line)}</p>
         <p class="clip-sub">${esc(clip.meaning)}${clip.hint ? ` · <em>${esc(clip.hint)}</em>` : ""}</p>
         <div class="speak-row">
           <button class="mic" aria-label="Tap to speak"><span class="mic-ring"></span>🎙️</button>
@@ -395,7 +398,7 @@ function bodyHTML(clip) {
     case "flip":
       return `${tag}
         <button class="flip-card" aria-label="Flip the card">
-          <span class="face front"><b class="${/[぀-ヿ一-鿿]/.test(clip.front) ? "jp" : "word"}">${esc(clip.front)}</b><small>tap to flip</small></span>
+          <span class="face front"><b class="${/[぀-ヿ一-鿿]/.test(clip.front) ? ([...clip.front].length > 2 ? "jp long" : "jp") : "word"}" ${inLang}>${esc(clip.front)}</b><small>tap to flip</small></span>
           <span class="face back"><b>${esc(clip.reading)}</b><span>${esc(clip.meaning)}</span><small>${esc(clip.note)}</small></span>
         </button>`;
   }

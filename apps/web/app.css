@@ -567,6 +567,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .face.front { background: #fff; color: var(--ink); padding: 16px; }
 .face.front .jp { font-size: 6rem; line-height: 1; font-weight: 700; }
+/* a word of 3+ characters (木漏れ日) stays on one line instead of splitting into 2×2 */
+.face.front .jp.long { font-size: 3.2rem; white-space: nowrap; }
+
+/* Japanese line breaking: "strict" never starts a line with ー or 。, and auto-phrase (where
+   supported) keeps whole phrases together. Both need the lang attribute set on the text. */
+[lang|="ja"] { line-break: strict; }
+.clip-big[lang|="ja"], .clip-q[lang|="ja"] { word-break: auto-phrase; }
 .face.front .word { font-family: var(--display); font-size: 2.1rem; font-weight: 900; letter-spacing: -0.03em; overflow-wrap: anywhere; }
 .face.front small { color: var(--muted); font-size: 0.76rem; }
 .face.back {
