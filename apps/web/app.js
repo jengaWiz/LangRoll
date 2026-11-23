@@ -39,6 +39,8 @@ function defaults() {
     liked: [],
     following: [],
     duels: { played: 0, won: 0 },
+    installed: false,
+    installSnoozedUntil: 0,
   };
 }
 
@@ -374,6 +376,7 @@ let sinceReview = 0;
 let sinceDuel = 0;
 let rendered = 0;
 let active = null;
+let installOffered = false; // the install card shows at most once per visit
 const clipTimers = [];
 
 const WAVE = "<i></i>".repeat(14);
@@ -543,9 +546,68 @@ function renderDone() {
     </div>`, { done: "1" });
 }
 
+// Getting the app without an app store: a card a few clips into a visit, with the steps for this
+// browser. It comes early on purpose: an iPhone's Home Screen app keeps its own storage, apart from
+// Safari, so progress made in Safari doesn't move over.
+const INSTALL_AFTER = 6; // clips into the feed before the card can show
+const INSTALL_SNOOZE_MS = 3 * 24 * 60 * 60 * 1000;
+const SHARE_ICON = `<svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M8 10H6v11h12V10h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+function renderInstall(how) {
+  const steps = {
+    ios: `<li>Tap <b>Share</b> ${SHARE_ICON}<small>No Share button? Tap <b>•••</b> first</small></li>
+          <li>Tap <b>Add to Home Screen</b></li>
+          <li>Tap <b>Add</b></li>`,
+    menu: `<li>Tap <b>⋮</b> in your browser</li>
+           <li>Tap <b>Install app</b> or <b>Add to Home screen</b></li>`,
+  }[how];
+  const el = clipEl("install", "blue", `
+    <div class="clip-body">
+      <span class="clip-tag">📲 Get the app · free</span>
+      <p class="clip-q">Add LangRoll to your Home Screen</p>
+      <p class="clip-sub">${how === "ios" ? "Do it early: the Home Screen app keeps its own progress, apart from Safari." : "It opens full screen like any app and works offline."}</p>
+      ${steps ? `<ol class="install-steps">${steps}</ol>` : ""}
+      <div class="options install-actions">
+        ${how === "prompt" ? `<button class="opt" data-install="now">Install</button>` : `<button class="opt" data-install="done">I added it</button>`}
+        <button class="opt" data-install="later">Not now</button>
+      </div>
+      <p class="quiz-result" aria-live="polite"></p>
+    </div>
+    <div class="clip-meta">
+      <div class="creator"><span class="avatar" style="--a:#7d93ff;--b:#3646d6">LR</span><b>LangRoll</b></div>
+      <p class="caption">no app store, no download 📲</p>
+    </div>`);
+  $(".glyph", el).textContent = "📲";
+  return el;
+}
+
+async function installClick(el, btn) {
+  const action = btn.dataset.install;
+  if (!action || el.classList.contains("answered")) return;
+  const result = $(".quiz-result", el);
+  const settle = (text) => {
+    el.classList.add("answered");
+    $$(".install-actions .opt", el).forEach((o) => { o.disabled = true; o.classList.toggle("right", o === btn); });
+    result.textContent = text;
+  };
+  if (action === "later" || (action === "now" && !(await promptInstall()))) {
+    state.installSnoozedUntil = Date.now() + INSTALL_SNOOZE_MS;
+    persist();
+    return settle("No problem. It's under You whenever you want it.");
+  }
+  if (action === "done") { state.installed = true; persist(); }
+  settle("📲 Nice! Open LangRoll from your Home Screen from now on.");
+  confettiFrom(btn, 12);
+}
+
 // For-you mixes fresh clips with due reviews and the odd duel.
 function nextItem() {
-  const due = dueCards().filter((c) => !feedEl.querySelector(`.clip.review[data-id="${c.id}"]:not(.graded)`));
+  const how = installMethod();
+  if (how && !installOffered && rendered >= INSTALL_AFTER && Date.now() >= state.installSnoozedUntil) {
+    installOffered = true;
+    return renderInstall(how);
+  }
+  const due =dueCards().filter((c) => !feedEl.querySelector(`.clip.review[data-id="${c.id}"]:not(.graded)`));
   if (due.length && sinceReview >= 3) {
     sinceReview = 0;
     return renderReview(due[0]);
@@ -802,6 +864,7 @@ feedEl.addEventListener("click", (e) => {
     case "flip": return flipCard(el, btn);
     case "review": return reviewCard(el, btn);
     case "duel": return duelClick(el, btn);
+    case "install": return installClick(el, btn);
   }
 });
 
@@ -1246,6 +1309,34 @@ window.addEventListener("beforeinstallprompt", (e) => {
   installPrompt = e;
   if (!screens.me.hidden) renderMe();
 });
+window.addEventListener("appinstalled", () => {
+  state.installed = true;
+  installPrompt = null;
+  persist();
+  if (!screens.me.hidden) renderMe();
+});
+
+// How this browser adds LangRoll to the Home Screen: Chrome and Edge's own install prompt,
+// Safari's Share menu (iPads included, which identify as Macs), or the browser menu on other
+// Android browsers. Null once it's installed, or where there's no way to.
+function installMethod() {
+  if (state.installed || matchMedia("(display-mode: standalone)").matches || navigator.standalone) return null;
+  if (installPrompt) return "prompt";
+  if (IOS) return "ios";
+  if (/Android/i.test(navigator.userAgent)) return "menu";
+  return null;
+}
+
+// Shows the browser's install prompt, which works once; true if the learner installed.
+async function promptInstall() {
+  const prompt = installPrompt;
+  installPrompt = null;
+  if (!prompt) return false;
+  prompt.prompt();
+  const { outcome } = await prompt.userChoice;
+  if (outcome === "accepted") { state.installed = true; persist(); }
+  return outcome === "accepted";
+}
 
 function renderMe() {
   rollDay();
@@ -1261,11 +1352,10 @@ function renderMe() {
     <div><b>${state.duels.won}/${state.duels.played}</b><small>duels won</small></div>
     <div><b>${state.liked.length}</b><small>likes</small></div>`;
   $("#sound-toggle").checked = state.sound;
-  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
-  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  $("#install-row").hidden = standalone || (!installPrompt && !ios);
-  $("#install-hint").textContent = installPrompt ? "Add LangRoll to your home screen" : "Tap Share, then Add to Home Screen";
-  $("#install").hidden = !installPrompt;
+  const how = installMethod();
+  $("#install-row").hidden = !how;
+  $("#install-hint").textContent = { prompt: "Add LangRoll to your home screen", ios: "Tap Share, then Add to Home Screen", menu: "Tap ⋮, then Install app" }[how] || "";
+  $("#install").hidden = how !== "prompt";
 }
 
 $("#change-lang").addEventListener("click", () => {
@@ -1279,10 +1369,7 @@ $("#sound-toggle").addEventListener("change", (e) => {
   persist();
 });
 $("#install").addEventListener("click", async () => {
-  if (!installPrompt) return;
-  installPrompt.prompt();
-  await installPrompt.userChoice;
-  installPrompt = null;
+  await promptInstall();
   renderMe();
 });
 // --- feedback ---
