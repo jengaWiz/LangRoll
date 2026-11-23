@@ -1,5 +1,5 @@
 // Offline app shell. Bump VERSION whenever app files change so phones pick up the update.
-const VERSION = "langroll-v22";
+const VERSION = "langroll-v23";
 const SHELL = [
   "./",
   "index.html",
@@ -20,8 +20,12 @@ const SHELL = [
   "icon-512.png",
 ];
 
+// Every file comes fresh from the server, not from the browser's HTTP cache: GitHub Pages lets
+// browsers keep files for 10 minutes, and a stale index.html stored under the new VERSION would be
+// served until the next release.
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  const fresh = SHELL.map((url) => new Request(url, { cache: "reload" }));
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(fresh)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
