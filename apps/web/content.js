@@ -5,6 +5,8 @@
 //   quiz   fill-the-blank, one right option
 //   speak  a line to say back, scored with speech recognition
 //   flip   a card with front / reading / meaning / memory note
+//   watch  one line from a YouTube scene, looped: video id, start / end in seconds (the line
+//          itself, at most 30s), line + meaning, and the channel it's credited to
 // Duels are generated from each language's `duel` pairs: [prompt, answer].
 
 const CREATORS = {
@@ -81,6 +83,9 @@ const LANGS = {
         note: "a convivio is a get-together: food, family, music, no agenda", caption: "Mexico's favorite verb, honestly 🎉", creator: "diego" },
       { id: "es-f6", kind: "flip", tag: "Word of the day", front: "vergüenza ajena", reading: "vehr-GWEN-sah ah-HEH-nah", meaning: "second-hand embarrassment",
         note: "cringing on someone else's behalf. Spanish named it first", caption: "watching your friend sing off-key? that 😬", creator: "maria" },
+      { id: "es-w1", kind: "watch", tag: "Giving orders", video: "e0dea7qrLdk", start: 95, end: 119.5,
+        line: "Esperad… esperad… ¡Puertas! ¡Fuego!", meaning: "Wait for it… wait for it… Doors! Fire!",
+        channel: "Netflix India", caption: "esperad is how Spain says it. in Mexico you'd hear ¡esperen!" },
     ],
     duel: [["uno", "1"], ["cinco", "5"], ["siete", "7"], ["diez", "10"], ["doce", "12"], ["quince", "15"], ["veinte", "20"], ["treinta", "30"], ["cincuenta", "50"], ["cien", "100"], ["ocho", "8"], ["tres", "3"]],
   },

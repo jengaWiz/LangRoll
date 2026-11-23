@@ -70,6 +70,8 @@ test.describe("presenter page", () => {
 });
 
 test.describe("app", () => {
+  // Spanish has real scenes, so any test can scroll into one: YouTube is stood in for throughout.
+  test.beforeEach(async ({ page }) => { await fakeYouTubeNetwork(page); });
 
   test("onboarding leads to a working feed", async ({ page }) => {
     const problems = watchForErrors(page);
@@ -695,7 +697,8 @@ test.describe("app", () => {
       await onboard(page);
       const clip = await scrollToKind(page, "watch");
       const id = await clip.getAttribute("data-id");
-      const scene = SCENES.find((s) => s.id === id);
+      // the feed is shuffled, so this can be a real scene or one of the test ones
+      const scene = await page.evaluate((id) => clipById(id), id);
 
       // the floating rail would sit over the video, so it steps aside for the clip's own row
       await expect(page.locator("#rail")).toHaveClass(/\bhidden\b/);
@@ -895,11 +898,42 @@ test.describe("app", () => {
       expect(await clipFitProblems(page, "watch")).toEqual([]);
     });
   });
+
+  // iPhone SE (2nd and 3rd gen) and similar: too tall for the short-phone styles, so clips get the
+  // full layout in less room than most phones give it.
+  test.describe("on a 4.7-inch phone", () => {
+    test.use({ viewport: { width: 375, height: 667 } });
+
+    test("every clip in every language fits", async ({ page }) => {
+      await page.goto("/app/");
+      await onboard(page);
+      expect(await clipFitProblems(page)).toEqual([]);
+    });
+
+    test("wide watch clips fit, up to the longest line", async ({ page }) => {
+      await withWatchClips(page);
+      await page.goto("/app/");
+      await onboard(page);
+      expect(await clipFitProblems(page, "watch", "wide")).toEqual([]);
+    });
+
+    // Known gap: a tall (Shorts) scene's video is sized as min(56svh, 100svh - 340px), which leaves
+    // too little room for the line, buttons and credit on most phones taller than 620px: its
+    // caption is pushed 30px off the bottom here, more with a long line. No tall scenes ship yet.
+    test.fixme("tall watch clips fit", async ({ page }) => {
+      await withWatchClips(page);
+      await page.goto("/app/");
+      await onboard(page);
+      expect(await clipFitProblems(page, "watch", "tall")).toEqual([]);
+    });
+  });
 });
 
 // Renders each clip on its own and reports any that run into the caption or off the side.
-async function clipFitProblems(page, kind) {
-  const ids = await page.evaluate((kind) => Object.entries(LANGS).flatMap(([lang, L]) => L.clips.filter((c) => !kind || c.kind === kind).map((c) => [lang, c.id])), kind);
+async function clipFitProblems(page, kind, shape) {
+  const ids = await page.evaluate(([kind, shape]) => Object.entries(LANGS).flatMap(([lang, L]) => L.clips
+    .filter((c) => (!kind || c.kind === kind) && (!shape || (c.shape ?? "wide") === shape))
+    .map((c) => [lang, c.id])), [kind, shape]);
   expect(ids.length, "found clips to check").toBeGreaterThan(0);
   const problems = [];
   for (const [lang, id] of ids) {
@@ -914,20 +948,25 @@ async function clipFitProblems(page, kind) {
       const meta = el.querySelector(".clip-meta").getBoundingClientRect();
       const shown = [...el.querySelectorAll(".clip-body *, .watch-slot")].filter((c) => c.getBoundingClientRect().height && !c.closest(".back, .score, .self-rate"));
       const overlap = Math.max(...shown.map((c) => c.getBoundingClientRect().bottom)) - meta.top;
+      // the caption (and a scene's YouTube credit) must stay on screen, not be pushed off the bottom
+      const cut = meta.bottom - el.getBoundingClientRect().bottom;
       const tooWide = shown.filter((c) => c.getBoundingClientRect().right > el.getBoundingClientRect().right + 1).map((c) => c.className || c.tagName);
-      return { overlap, tooWide };
+      return { overlap, cut, tooWide };
     }, [lang, id]);
     if (result.overlap > 1) problems.push(`${id} runs ${Math.round(result.overlap)}px into its caption`);
+    if (result.cut > 1) problems.push(`${id}'s caption is cut off by ${Math.round(result.cut)}px`);
     if (result.tooWide.length) problems.push(`${id} is too wide: ${result.tooWide.join(", ")}`);
   }
   return problems;
 }
 
-// No watch clips have shipped yet, so tests add their own: a long wide one and a tall one.
-// YouTube's thumbnails and player are stood in for, so tests never touch the network.
+// Tests add their own scenes, a long wide one and a tall one, so layout and playback checks don't
+// depend on which real scenes ship.
 const SCENES = [
   { id: "es-wtest1", kind: "watch", tag: "At the market", caption: "how people really haggle at a market stall in Mexico City", video: "aaaaaaaaaaa", start: 12, end: 16.5, line: "¿Me lo deja en cincuenta pesos, por favor?", meaning: "Will you let me have it for fifty pesos, please?", channel: "Mercados de México TV" },
   { id: "es-wtest2", kind: "watch", tag: "Greetings", caption: "a quick hello", video: "bbbbbbbbbbb", start: 3, end: 6, shape: "tall", line: "¿Qué onda?", meaning: "What's up?", channel: "Short Channel" },
+  // the longest line content allows (85 characters)
+  { id: "es-wtest3", kind: "watch", tag: "On the bus", caption: "asking the driver before you get on", video: "ccccccccccc", start: 20, end: 26, line: "Oiga, perdone, ¿sabe si este autobús pasa por el centro o hay que cambiar en la otra?", meaning: "Excuse me, does this bus go downtown, or do I need to change at the next stop?", channel: "Long Line Channel" },
 ];
 const PIXEL = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
 
@@ -956,6 +995,11 @@ async function withWatchClips(page) {
     const res = await route.fetch();
     await route.fulfill({ response: res, body: `${await res.text()}\nLANGS.es.clips.push(...${JSON.stringify(SCENES)});` });
   });
+  await fakeYouTubeNetwork(page);
+}
+
+// YouTube's thumbnails and player are stood in for, so tests never touch the network.
+async function fakeYouTubeNetwork(page) {
   await page.route("https://i.ytimg.com/**", (route) => route.fulfill({ contentType: "image/png", body: PIXEL }));
   await page.route("https://www.youtube.com/iframe_api", (route) => route.fulfill({ contentType: "text/javascript", body: `(${fakeYouTube})()` }));
 }
