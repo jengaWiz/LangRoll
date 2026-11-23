@@ -620,6 +620,18 @@ async function installClick(el, btn) {
   confettiFrom(btn, 12);
 }
 
+// Scenes are the feed's highlight but only a few of the clips, so a plain shuffle could leave one
+// 30 clips down. Each round deals the first scene third (after a lesson or two, by which time
+// there's been a tap and sound can play) and spreads the rest about every six clips.
+const FIRST_SCENE_AT = 2;
+const SCENE_EVERY = 6;
+function dealScenes(clips) {
+  const scenes = clips.filter((c) => c.kind === "watch");
+  const rest = clips.filter((c) => c.kind !== "watch");
+  scenes.forEach((scene, i) => rest.splice(Math.min(rest.length, FIRST_SCENE_AT + i * SCENE_EVERY), 0, scene));
+  return rest;
+}
+
 // For-you mixes fresh clips with due reviews and the odd duel.
 function nextItem() {
   const how = installMethod();
@@ -641,7 +653,7 @@ function nextItem() {
   let clip = queue.shift();
   while (clip && !playable(clip)) clip = queue.shift();
   if (!clip) {
-    queue = shuffle(lang().clips.filter(playable));
+    queue = dealScenes(shuffle(lang().clips.filter(playable)));
     clip = queue.shift();
   }
   sinceReview++;
