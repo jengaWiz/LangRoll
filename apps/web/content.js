@@ -5,6 +5,8 @@
 //   quiz   fill-the-blank, one right option
 //   speak  a line to say back, scored with speech recognition
 //   flip   a card with front / reading / meaning / memory note
+//   watch  one line from a YouTube scene, looped: video id, start / end in seconds (the line
+//          itself, at most 30s), line + meaning, and the channel it's credited to
 // Duels are generated from each language's `duel` pairs: [prompt, answer].
 
 const CREATORS = {
@@ -81,6 +83,15 @@ const LANGS = {
         note: "a convivio is a get-together: food, family, music, no agenda", caption: "Mexico's favorite verb, honestly 🎉", creator: "diego" },
       { id: "es-f6", kind: "flip", tag: "Word of the day", front: "vergüenza ajena", reading: "vehr-GWEN-sah ah-HEH-nah", meaning: "second-hand embarrassment",
         note: "cringing on someone else's behalf. Spanish named it first", caption: "watching your friend sing off-key? that 😬", creator: "maria" },
+      { id: "es-w1", kind: "watch", tag: "Giving orders", video: "e0dea7qrLdk", start: 95, end: 119.5,
+        line: "Esperad… esperad… ¡Puertas! ¡Fuego!", meaning: "Wait for it… wait for it… Doors! Fire!",
+        channel: "Netflix India", caption: "esperad is how Spain says it. in Mexico you'd hear ¡esperen!" },
+      { id: "es-w2", kind: "watch", tag: "Introducing yourself", video: "hMANIarjT50", start: 0, end: 8,
+        line: "Me llamo Tokio. Pero cuando comenzó esta historia, no me llamaba así.", meaning: "My name is Tokyo. But when this story began, that wasn't my name.",
+        channel: "4 Trailer", caption: "Tokyo introduces herself at the start of Money Heist" },
+      { id: "es-w3", kind: "watch", tag: "The plan", video: "hMANIarjT50", start: 31.5, end: 40,
+        line: "¿Qué estamos haciendo? ¿Qué vamos a robar? La Fábrica Nacional de Moneda y Timbre.", meaning: "What are we doing? What are we robbing? The Royal Mint of Spain.",
+        channel: "4 Trailer", caption: "the gang reveals their target" },
     ],
     duel: [["uno", "1"], ["cinco", "5"], ["siete", "7"], ["diez", "10"], ["doce", "12"], ["quince", "15"], ["veinte", "20"], ["treinta", "30"], ["cincuenta", "50"], ["cien", "100"], ["ocho", "8"], ["tres", "3"]],
   },

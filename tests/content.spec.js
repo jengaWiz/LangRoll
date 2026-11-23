@@ -19,7 +19,9 @@ const FIELDS = {
   quiz: { q: 80, sub: 80, explain: 140 },
   speak: { line: 60, meaning: 80 },
   flip: { front: 24, reading: 40, meaning: 60, note: 140 },
-  watch: { line: 80, meaning: 80, channel: 40 },
+  // a scene's line is what was actually said, so it gets a little more room than a lesson's; the
+  // fit tests measure every real clip on three phone sizes either way
+  watch: { line: 85, meaning: 80, channel: 40 },
 };
 // Every language needs these. Watch clips are optional: they depend on finding the right scene.
 const CORE_KINDS = ["vocab", "quiz", "speak", "flip"];
@@ -101,7 +103,7 @@ test("every creator is used, so none are left behind", () => {
   expect(Object.keys(CREATORS).filter((c) => !used.has(c))).toEqual([]);
 });
 
-// No language has watch clips yet, so check the rules on a sample.
+// The rules, and the mistakes they catch, on a sample scene.
 test("watch clips are checked too", () => {
   const scene = { id: "es-w1", kind: "watch", tag: "In a café", caption: "ordering like a local", video: "dQw4w9WgXcQ", start: 12, end: 16.5, line: "Un café, por favor.", meaning: "A coffee, please.", channel: "Some Channel" };
   expect(problems("es", scene)).toEqual([]);

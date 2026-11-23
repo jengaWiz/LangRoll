@@ -922,6 +922,8 @@ li.due .deck-due { color: var(--violet); }
 .watch .clip-body { flex: none; padding-top: 12px; }
 .watch .clip-meta { margin-top: auto; }
 .watch-line { margin: 0; transition: opacity 0.25s ease; }
+/* a long line (content allows up to 85 characters) gets smaller type, so the scene still fits */
+.watch-line.long { font-size: clamp(1.1rem, 5vw, 1.45rem); }
 /* while a scene plays, its line is dimmed during the run-up and lights up as it's said */
 .watch.playing:not(.speaking) .watch-line { opacity: 0.45; }
 .watch-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
@@ -942,6 +944,11 @@ li.due .deck-due { color: var(--violet); }
 }
 .watch-actions button.on { background: #fff; color: var(--ink); }
 .watch-actions .watch-sound { width: 40px; justify-content: center; padding: 0; }
+/* narrow phones: the sound, like, save and share row stays on one line */
+@media (max-width: 360px) {
+  .watch-actions { gap: 6px; }
+  .watch-actions button:not(.watch-sound) { padding: 0 10px; font-size: 0.8rem; }
+}
 /* a quiet credit, so it doesn't read as a play button */
 .watch-source {
   display: inline-block;

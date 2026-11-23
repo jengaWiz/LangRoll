@@ -441,7 +441,7 @@ function bodyHTML(clip) {
       // Like, save and share sit under the video, as on YouTube: the floating rail would cover
       // the player, and YouTube's rules don't allow anything in front of it.
       return `${tag}
-        <p class="clip-q watch-line" ${inLang}>${esc(clip.line)}</p>
+        <p class="clip-q watch-line${[...clip.line].length > 45 ? " long" : ""}" ${inLang}>${esc(clip.line)}</p>
         <p class="clip-sub">${esc(clip.meaning)}</p>
         <div class="watch-actions">
           <button class="watch-sound" aria-label="Turn sound on" aria-pressed="false">🔇</button>
