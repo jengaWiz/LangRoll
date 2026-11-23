@@ -909,9 +909,11 @@ function showScore(el, clip, score) {
   $(".score-text", el).innerHTML = `${title}<br><small>${sub}</small>`;
   el.classList.add("scored");
   Sync.record("speech_scored", clip.id, { score: Math.round(score) });
+  // any attempt puts the line in the deck, as it does on the server
+  ensureCard(clip.id);
+  persist();
   if (score >= 60 && !el.classList.contains("earned")) {
     el.classList.add("earned");
-    ensureCard(clip.id);
     addXP(score >= 85 ? 15 : 8, ring);
     if (score >= 85) confettiFrom(ring);
   }
@@ -1232,10 +1234,14 @@ function applyServer(server) {
   state.streak = streak.current
     ? { count: streak.current, last: today.xp > 0 ? today.day : yesterdayKey() }
     : { count: 0, last: null };
-  for (const id of Object.keys(state.cards)) if (id.startsWith(state.lang + "-")) delete state.cards[id];
+  // The server doesn't send ease. A guest account belongs to one phone, so this phone made every
+  // review the server knows about, and its own ease is the server's: keep it across the swap.
+  const local = {};
+  for (const id of Object.keys(state.cards)) {
+    if (id.startsWith(state.lang + "-")) { local[id] = state.cards[id]; delete state.cards[id]; }
+  }
   for (const c of server.cards) {
-    const local = state.cards[c.clipId];
-    state.cards[c.clipId] = { id: c.clipId, due: Date.parse(c.dueAt), interval: c.intervalDays, ease: local?.ease ?? 2.5, reps: c.reps, lapses: c.lapses };
+    state.cards[c.clipId] = { id: c.clipId, due: Date.parse(c.dueAt), interval: c.intervalDays, ease: local[c.clipId]?.ease ?? 2.5, reps: c.reps, lapses: c.lapses };
   }
   persist();
   renderHud();
