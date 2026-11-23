@@ -1,4 +1,4 @@
-/* global Sync, clipById, LANGS, state, renderContent, setActive, observer, nextItem, Watch, Recorder -- the app's globals, used only inside page.evaluate callbacks */
+/* global Sync, clipById, LANGS, state, renderContent, setActive, observer, nextItem, Watch, Recorder, dealScenes, shuffle -- the app's globals, used only inside page.evaluate callbacks */
 import { expect, test } from "@playwright/test";
 
 // Fail on any JS error, console error, or broken same-origin request.
@@ -722,6 +722,19 @@ test.describe("app", () => {
       });
       await expect(page.locator("#rail")).not.toHaveClass(/\bhidden\b/);
       expect(problems).toEqual([]);
+    });
+
+    // Scenes are a few clips out of ~30; a plain shuffle could bury them at the bottom.
+    test("come up early in the feed, then spread out", async ({ page }) => {
+      await withWatchClips(page);
+      await page.goto("/app/");
+      await onboard(page);
+      const kinds = await page.evaluate(() => dealScenes(shuffle(LANGS.es.clips)).map((c) => c.kind));
+      const at = kinds.flatMap((k, i) => (k === "watch" ? [i] : []));
+      expect(at[0]).toBe(2);
+      for (let i = 1; i < at.length; i++) expect(at[i] - at[i - 1]).toBe(6);
+      // and in the feed itself: a new learner's third clip is a scene
+      await expect(page.locator("#feed .clip").nth(2)).toHaveAttribute("data-kind", "watch");
     });
 
     test.describe("playback", () => {
