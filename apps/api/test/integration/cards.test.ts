@@ -70,6 +70,21 @@ describe("review cards from events", () => {
     expect(await card(user)).toEqual(before);
   });
 
+  // ease is stored as a 4-byte real, where 1.3 is 1.2999999…; the word must still save once it
+  // reaches the floor, or every later upload from that learner is refused
+  it("keeps saving a word forgotten so often its ease hits the floor", async () => {
+    const user = randomUUID();
+    await upload(user, [ev("clip_viewed")]);
+    for (let i = 0; i < 7; i++) {
+      await makeDue(user);
+      const res = await upload(user, [ev("review_graded", { grade: "again" })]);
+      expect(res.statusCode, `forget #${i + 1}`).toBe(200);
+    }
+    const c = (await card(user))!;
+    expect(c.lapses).toBe(7);
+    expect(c.ease).toBeCloseTo(1.3);
+  });
+
   it("doesn't make cards for duels", async () => {
     const user = randomUUID();
     await upload(user, [ev("duel_finished", { won: true }, "es-duel")]);
