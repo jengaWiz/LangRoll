@@ -42,14 +42,6 @@ if (finePointer && !reduceMotion) {
   }, { passive: true });
 }
 
-// ---------- "People scrolling right now" ticker ----------
-const liveCount = document.getElementById("live-count");
-let live = 2418;
-setInterval(() => {
-  live = Math.max(1900, live + Math.round((Math.random() - 0.45) * 40));
-  liveCount.textContent = live.toLocaleString("en-US");
-}, 2200);
-
 // =========================================================
 // Phone feed
 // =========================================================
@@ -290,10 +282,8 @@ feed.addEventListener("pointerup", (e) => {
 
 // --- follow buttons ---
 feed.querySelectorAll(".follow").forEach((btn) => {
-  const label = btn.textContent;
   btn.addEventListener("click", () => {
-    const on = btn.classList.toggle("on");
-    btn.textContent = on ? (label === "Friend" ? "Challenged" : "Following") : label;
+    btn.textContent = btn.classList.toggle("on") ? "Following" : "Follow";
   });
 });
 
