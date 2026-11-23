@@ -233,6 +233,27 @@ if (window.speechSynthesis) {
   speechSynthesis.addEventListener("voiceschanged", loadVoices);
 }
 
+// The phone's own voice is the fallback for lines without a recording, so pick its best one, not
+// the first that matches. Browsers name their good voices: Edge's "Online (Natural)", Apple's
+// "Premium" and "Enhanced" downloads, Chrome's "Google" voices. Apple also lists novelty voices
+// (Grandma, Rocko…) in every language; those come last. The course's own accent comes first.
+const GOOD_VOICE = /natural|neural|premium|enhanced|google/i;
+const NOVELTY_VOICE = /\b(eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley)\b/i;
+function pickVoice(code) {
+  if (!voices.length) loadVoices(); // Safari doesn't always say when its voices are ready
+  const norm = (v) => v.lang.replace("_", "-").toLowerCase();
+  const want = code.toLowerCase();
+  const score = (v) =>
+    (norm(v) === want ? 100 : norm(v).startsWith(want.slice(0, 2)) ? 50 : -1000) +
+    (/premium/i.test(v.name) ? 12 : 0) +
+    (GOOD_VOICE.test(v.name) ? 10 : 0) +
+    (NOVELTY_VOICE.test(v.name) ? -20 : 0) +
+    (v.localService ? 1 : 0); // all else equal, a voice that works offline
+  let best = null;
+  for (const v of voices) if (score(v) > 0 && (!best || score(v) > score(best))) best = v;
+  return best;
+}
+
 const IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 let silentHintShown = false;
 let lastUtterance = null;
@@ -281,8 +302,7 @@ function speakWithVoice(text, force) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = code;
   u.rate = 0.9;
-  const norm = (v) => v.lang.replace("_", "-");
-  const voice = voices.find((v) => norm(v) === code) || voices.find((v) => norm(v).startsWith(code.slice(0, 2)));
+  const voice = pickVoice(code);
   if (voice) u.voice = voice;
   if (force) {
     let started = false;

@@ -174,16 +174,16 @@ test.describe("app", () => {
       await page.addInitScript(() => {
         // micError: fail with this error. promptMs: delay before the mic opens (a permission prompt).
         // say: transcript to "hear" once the mic is open.
-        const calls = (window.__speech = { spoken: [], idleCancels: 0, micError: null, promptMs: 0, say: null });
+        const calls = (window.__speech = { spoken: [], idleCancels: 0, micError: null, promptMs: 0, say: null, voices: [] });
         let speaking = false;
         const fake = (name, value) => Object.defineProperty(window, name, { value, configurable: true, writable: true });
         fake("speechSynthesis", {
           get speaking() { return speaking; },
           pending: false,
-          getVoices: () => [],
+          getVoices: () => calls.voices,
           addEventListener() {},
           speak(u) {
-            calls.spoken.push({ text: u.text, lang: u.lang });
+            calls.spoken.push({ text: u.text, lang: u.lang, ...(u.voice && { voice: u.voice.name }) });
             speaking = true;
             setTimeout(() => u.onstart?.(), 10);
             setTimeout(() => { speaking = false; }, 300);
@@ -225,6 +225,27 @@ test.describe("app", () => {
       const { spoken, idleCancels } = await page.evaluate(() => window.__speech);
       expect(spoken.at(-1)).toEqual({ text: await clip.locator(".clip-big").textContent(), lang: "es-MX" });
       expect(idleCancels, "cancel() on an idle engine can swallow the next utterance").toBe(0);
+    });
+
+    // Phones list many voices per language; the first match is often the most robotic one.
+    test("Hear it picks the phone's best voice in the course's accent", async ({ page }) => {
+      const voice = (name, lang, localService = true) => ({ name, lang, localService });
+      const lists = {
+        // Safari on an iPhone with a Premium voice downloaded
+        "Paulina (Premium)": [voice("Grandma (Spanish (Mexico))", "es-MX"), voice("Mónica", "es-ES"), voice("Paulina", "es-MX"), voice("Paulina (Premium)", "es-MX")],
+        // Edge, whose online voices are neural
+        "Microsoft Dalia Online (Natural) - Spanish (Mexico)": [voice("Microsoft Sabina - Spanish (Mexico)", "es-MX"), voice("Microsoft Dalia Online (Natural) - Spanish (Mexico)", "es-MX", false)],
+        // only Spain's voices installed: still Spanish rather than no voice
+        "Mónica": [voice("Samantha", "en-US"), voice("Mónica", "es_ES")],
+      };
+      for (const [best, list] of Object.entries(lists)) {
+        // runs after the fake on every load, so the app starts up with this phone's voices
+        await page.addInitScript((l) => { window.__speech.voices = l; }, list);
+        await page.reload();
+        const clip = await scrollToKind(page, "vocab");
+        await clip.locator(".play").click();
+        await expect.poll(() => page.evaluate(() => window.__speech.spoken.at(-1)?.voice)).toBe(best);
+      }
     });
 
     test("a blocked mic explains itself and offers self-rating", async ({ page }) => {
