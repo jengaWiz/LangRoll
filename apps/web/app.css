@@ -614,6 +614,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .duel-result { min-height: 1.4em; margin: 10px 0 0; font-family: var(--display); font-size: 1.3rem; font-weight: 900; }
 .duel-result.win { animation: pop-in 0.5s var(--spring); }
 
+/* install card: how to add the app to the Home Screen */
+.install-steps { display: grid; gap: 10px; margin: 18px 0 0; padding-left: 1.4em; font-size: 1rem; }
+.install-steps li::marker { font-family: var(--display); font-weight: 900; }
+.install-steps small { display: block; margin-top: 2px; font-size: 0.8rem; opacity: 0.85; }
+.share-icon { width: 1.15em; height: 1.15em; margin-left: 2px; vertical-align: -0.2em; }
+/* no space held for a reply until there is one; once they've chosen, the steps make room for it */
+.install .quiz-result:empty { display: none; }
+.install.answered .install-steps { display: none; }
+
 /* action rail */
 .rail {
   position: absolute;
@@ -955,6 +964,9 @@ li.due .deck-due { color: var(--violet); }
   .clip-tag { margin-bottom: 10px; }
   .watch .clip-tag { display: none; }
   .watch .clip-body { padding-top: 10px; }
+  .install-steps { gap: 6px; margin-top: 12px; font-size: 0.92rem; }
+  .install-actions { margin-top: 12px; }
+  .install-actions .opt { padding: 9px 14px; }
 }
 
 /* the feed is built for portrait; a sideways phone gets a nudge instead of a squashed layout */

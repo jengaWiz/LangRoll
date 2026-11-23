@@ -127,6 +127,45 @@ test.describe("app", () => {
     await expect.poll(() => visible(".front")).toBe("hidden");
   });
 
+  // An iPhone's Home Screen app keeps its own storage, so the card comes early in a visit, and
+  // "Not now" keeps it away for a few days.
+  test("shows iPhone users how to add the app to the Home Screen, until they say not now", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "iphone", "the iPhone steps; Chrome's own install prompt can't be faked here");
+    const problems = watchForErrors(page);
+    await page.goto("/app/");
+    await onboard(page);
+    const card = await scrollToKind(page, "install");
+    await expect(card.locator(".install-steps li")).toHaveCount(3);
+    await expect(card.locator(".install-steps")).toContainText("Add to Home Screen");
+    await card.locator('[data-install="later"]').click();
+    await expect(card.locator(".quiz-result")).toContainText("No problem");
+
+    // The next visit, within the 3 days: the feed goes well past where the card was, without it.
+    await page.reload();
+    const feed = page.locator("#feed");
+    await expect.poll(async () => {
+      await feed.evaluate((f) => { const clips = f.querySelectorAll(".clip"); f.scrollTo({ top: clips[clips.length - 1].offsetTop, behavior: "instant" }); });
+      return feed.locator(".clip").count();
+    }).toBeGreaterThan(12);
+    await expect(feed.locator('.clip[data-kind="install"]')).toHaveCount(0);
+    expect(problems).toEqual([]);
+  });
+
+  // iPads identify as Macs ("MacIntel"); only the touch screen gives them away.
+  test("gives iPads the Add to Home Screen tip", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "fakes an iPad in desktop Chrome");
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, "platform", { get: () => "MacIntel" });
+      Object.defineProperty(Navigator.prototype, "maxTouchPoints", { get: () => 5 });
+      // keep Chrome's own install prompt out of it
+      window.addEventListener("beforeinstallprompt", (e) => e.stopImmediatePropagation(), true);
+    });
+    await page.goto("/app/");
+    await onboard(page);
+    await page.locator('#tabbar [data-screen="me"]').click();
+    await expect(page.locator("#install-hint")).toHaveText("Tap Share, then Add to Home Screen");
+  });
+
   test.describe("speech", () => {
     // Headless browsers have no voices or mic, so swap in fakes that record calls and fail on demand.
     test.beforeEach(async ({ page }) => {
@@ -803,19 +842,20 @@ test.describe("app", () => {
         await page.locator("#feed").evaluate((f, i) => f.scrollTo({ top: f.querySelectorAll(".clip")[i].offsetTop, behavior: "instant" }), i);
         const clip = page.locator("#feed .clip").nth(i);
         await expect(clip).toHaveClass(/\bactive\b/);
-        const { kind, overlap } = await clip.evaluate(async (el) => {
-          // content slides up as a clip becomes active; measure where it settles
-          for (let moving; (moving = el.getAnimations({ subtree: true }).filter((a) => a instanceof CSSTransition)).length;) {
-            await Promise.all(moving.map((a) => a.finished.catch(() => {})));
-          }
-          const meta = el.querySelector(".clip-meta").getBoundingClientRect();
-          const bottoms = [...el.querySelectorAll(".clip-body *")].map((c) => c.getBoundingClientRect()).filter((r) => r.height).map((r) => r.bottom);
-          return { kind: el.dataset.kind, overlap: Math.max(...bottoms) - meta.top };
-        });
-        seen.add(kind);
+        const { kind, overlap } = await captionOverlap(clip);
+        // the install card isn't a lesson; it gets its own check below
+        if (kind !== "install") seen.add(kind);
         expect(overlap, `${kind} clip runs into its caption`).toBeLessThanOrEqual(1);
       }
       expect(seen.size, "saw every clip kind").toBe(5);
+    });
+
+    test("the install card fits above its caption", async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== "iphone", "the iPhone card has the most steps");
+      await page.goto("/app/");
+      await onboard(page);
+      const { overlap } = await captionOverlap(await scrollToKind(page, "install"));
+      expect(overlap, "install card runs into its caption").toBeLessThanOrEqual(1);
     });
 
     // The feed only ever shows a few clips, so check each one directly: a single long phrase in
@@ -934,6 +974,19 @@ function fakeYouTube() {
   }
   window.YT = { Player, PlayerState: S };
   setTimeout(() => window.onYouTubeIframeAPIReady?.(), 0);
+}
+
+// How far a clip's content runs past the top of its caption, once it has settled.
+function captionOverlap(clip) {
+  return clip.evaluate(async (el) => {
+    // content slides up as a clip becomes active; measure where it settles
+    for (let moving; (moving = el.getAnimations({ subtree: true }).filter((a) => a instanceof CSSTransition)).length;) {
+      await Promise.all(moving.map((a) => a.finished.catch(() => {})));
+    }
+    const meta = el.querySelector(".clip-meta").getBoundingClientRect();
+    const bottoms = [...el.querySelectorAll(".clip-body *")].map((c) => c.getBoundingClientRect()).filter((r) => r.height).map((r) => r.bottom);
+    return { kind: el.dataset.kind, overlap: Math.max(...bottoms) - meta.top };
+  });
 }
 
 async function onboard(page) {
