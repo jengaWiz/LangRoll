@@ -78,7 +78,7 @@ export function buildApp(config: Config, deps: Deps): FastifyInstance {
   app.register(meRoutes, { verifyToken: deps.verifyToken, db: deps.db });
   app.register(eventRoutes, { verifyToken: deps.verifyToken, db: deps.db });
   app.register(feedbackRoutes, { verifyToken: deps.verifyToken, db: deps.db });
-  app.register(speechRoutes, { verifyToken: deps.verifyToken, assess: deps.assessSpeech });
+  app.register(speechRoutes, { verifyToken: deps.verifyToken, db: deps.db, assess: deps.assessSpeech, dailyLimit: config.SPEECH_DAILY_LIMIT });
 
   return app;
 }

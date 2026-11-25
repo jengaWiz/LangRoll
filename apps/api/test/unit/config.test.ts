@@ -17,6 +17,7 @@ describe("loadConfig", () => {
       CORS_ORIGINS: ["http://127.0.0.1:4173", "http://localhost:4173"],
       TRUST_PROXY_HOPS: 0,
       AZURE_SPEECH_REGION: "eastus",
+      SPEECH_DAILY_LIMIT: 15,
     });
   });
 

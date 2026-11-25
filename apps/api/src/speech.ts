@@ -27,6 +27,12 @@ export class SpeechUnavailableError extends Error {
   readonly statusCode = 503;
 }
 
+// The learner used up today's checks. Not an outage: the app falls back for the rest of the day.
+export class DailyLimitError extends Error {
+  readonly statusCode = 429;
+  readonly code = "daily_limit";
+}
+
 export class BadAudioError extends Error {
   readonly statusCode = 415;
   readonly code = "unsupported_audio";
