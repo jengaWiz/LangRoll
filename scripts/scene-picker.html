@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scene picker</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #f6f6f8; --card: #fff; --ink: #16161d; --muted: #6b6b7b; --line: #e2e2ea; --accent: #e8473b; --ok: #1f9d55; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #111117; --card: #1b1b24; --ink: #f2f2f7; --muted: #9a9aad; --line: #2c2c3a; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--ink); display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+    aside { overflow-y: auto; border-right: 1px solid var(--line); padding: 12px; }
+    aside h1 { font-size: 1.05rem; margin: 4px 4px 2px; }
+    aside p { margin: 0 4px 12px; color: var(--muted); font-size: 0.85rem; }
+    .cand { display: block; width: 100%; text-align: left; border: 1px solid transparent; background: none; color: inherit; font: inherit; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+    .cand:hover { background: var(--card); }
+    .cand.on { background: var(--card); border-color: var(--line); }
+    .cand b { display: block; font-size: 0.9rem; }
+    .cand small { color: var(--muted); }
+    .cand .count { float: right; color: var(--ok); font-weight: 700; }
+    main { overflow-y: auto; padding: 20px 24px 40px; }
+    .player { width: min(100%, 880px); aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; }
+    .player iframe { width: 100%; height: 100%; border: 0; }
+    h2 { margin: 16px 0 2px; font-size: 1.2rem; }
+    .meta { color: var(--muted); margin: 0 0 14px; }
+    .panel { width: min(100%, 880px); background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+    button.btn { font: inherit; border: 1px solid var(--line); background: var(--bg); color: inherit; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+    button.small { padding: 3px 9px; font-size: 0.85rem; }
+    .time { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 4.5em; display: inline-block; }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin: 8px 0 3px; }
+    input { width: 100%; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: inherit; }
+    kbd { font: 0.8rem ui-monospace, monospace; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+    .save-row { margin: 14px 0 0; }
+    .msg { min-height: 1.4em; margin: 8px 0 0; }
+    .msg.err { color: var(--accent); }
+    .msg.ok { color: var(--ok); }
+    .picks { list-style: none; padding: 0; margin: 14px 0 0; }
+    .picks li { border-top: 1px solid var(--line); padding: 8px 0; display: flex; gap: 10px; align-items: baseline; }
+    .picks li span { flex: 1; }
+    .picks small { color: var(--muted); }
+    @media (max-width: 760px) { body { grid-template-columns: 1fr; height: auto; } aside { max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--line); } }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>Scene picker</h1>
+    <p>Pick a video, find one short line worth learning, and save it. A video can give several lines.</p>
+    <div id="list"></div>
+  </aside>
+  <main>
+    <div class="player"><div id="player"></div></div>
+    <h2 id="title">Choose a video on the left</h2>
+    <p class="meta" id="meta"></p>
+    <div class="panel">
+      <div class="row">
+        <button class="btn" id="mark-start">Line starts here <kbd>S</kbd></button>
+        <span class="time" id="start">–</span>
+        <button class="btn small" data-nudge="start:-0.5">−½s</button>
+        <button class="btn small" data-nudge="start:0.5">+½s</button>
+      </div>
+      <div class="row">
+        <button class="btn" id="mark-end">Line ends here <kbd>E</kbd></button>
+        <span class="time" id="end">–</span>
+        <button class="btn small" data-nudge="end:-0.5">−½s</button>
+        <button class="btn small" data-nudge="end:0.5">+½s</button>
+        <button class="btn" id="replay">▶ Play just the line <kbd>R</kbd></button>
+      </div>
+      <label for="line">The line, exactly as said, in Spanish</label>
+      <input type="text" id="line" maxlength="85" autocomplete="off" placeholder="¿Qué estamos haciendo?">
+      <label for="meaning">What it means in English (optional)</label>
+      <input type="text" id="meaning" maxlength="80" autocomplete="off">
+      <label for="note">Anything worth knowing (optional): slang, who's speaking, a swear word nearby…</label>
+      <input type="text" id="note" maxlength="140" autocomplete="off">
+      <div class="row save-row">
+        <button class="btn primary" id="save">Save this line</button>
+      </div>
+      <p class="msg" id="msg" aria-live="polite"></p>
+      <ul class="picks" id="picks"></ul>
+    </div>
+  </main>
+  <script>
+    const $ = (s) => document.querySelector(s);
+    const ACCENTS = { mx: "Mexico", latam: "Latin American dub", es: "Spain", co: "Colombia" };
+    let candidates = [];
+    let picks = [];
+    let current = null;
+    let player = null;
+    let marks = { start: null, end: null };
+    let stopAt = null;
+
+    const fmt = (t) => (t == null ? "–" : `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`);
+    const say = (text, kind = "") => { $("#msg").textContent = text; $("#msg").className = `msg ${kind}`; };
+
+    function renderList() {
+      $("#list").innerHTML = "";
+      for (const c of candidates) {
+        const n = picks.filter((p) => p.video === c.video).length;
+        const b = document.createElement("button");
+        b.className = `cand${current === c ? " on" : ""}`;
+        b.innerHTML = `${n ? `<span class="count">${n} ✓</span>` : ""}<b></b><small></small>`;
+        b.querySelector("b").textContent = c.show;
+        b.querySelector("small").textContent = `${c.scene} · ${ACCENTS[c.accent] || c.accent}`;
+        b.onclick = () => choose(c);
+        $("#list").append(b);
+      }
+    }
+
+    function renderPicks() {
+      $("#picks").innerHTML = "";
+      picks.forEach((p, i) => {
+        if (!current || p.video !== current.video) return;
+        const li = document.createElement("li");
+        li.innerHTML = `<span><b></b><br><small></small></span><button class="btn small">Remove</button>`;
+        li.querySelector("b").textContent = p.line;
+        li.querySelector("small").textContent = `${fmt(p.start)} → ${fmt(p.end)}${p.meaning ? ` · ${p.meaning}` : ""}`;
+        li.querySelector("button").onclick = async () => {
+          picks = await (await fetch(`/picks/${i}`, { method: "DELETE" })).json();
+          renderPicks(); renderList();
+        };
+        $("#picks").append(li);
+      });
+    }
+
+    function resetForm() {
+      marks = { start: null, end: null };
+      $("#start").textContent = $("#end").textContent = "–";
+      for (const id of ["line", "meaning", "note"]) $(`#${id}`).value = "";
+    }
+
+    function choose(c) {
+      if (!window.YT?.Player) return say("YouTube is still loading, try again in a second.", "err");
+      current = c;
+      resetForm();
+      say("");
+      $("#title").textContent = `${c.show}: ${c.scene}`;
+      $("#meta").textContent = `${c.channel} · ${ACCENTS[c.accent] || c.accent}${c.shape === "tall" ? " · vertical Short" : ""}`;
+      if (player) player.loadVideoById(c.video);
+      else player = new YT.Player("player", {
+        host: "https://www.youtube-nocookie.com",
+        videoId: c.video,
+        playerVars: { playsinline: 1, rel: 0, iv_load_policy: 3, origin: location.origin },
+        events: { onError: (e) => say(`YouTube couldn't play this video (error ${e.data}). Skip it.`, "err") },
+      });
+      renderList(); renderPicks();
+    }
+
+    function mark(which) {
+      if (!player?.getCurrentTime) return;
+      marks[which] = Math.round(player.getCurrentTime() * 10) / 10;
+      $(`#${which}`).textContent = fmt(marks[which]);
+    }
+
+    function replay() {
+      if (marks.start == null || marks.end == null) return say("Mark where the line starts and ends first.", "err");
+      player.seekTo(marks.start, true);
+      player.playVideo();
+      stopAt = marks.end;
+    }
+    setInterval(() => {
+      if (stopAt != null && player?.getCurrentTime && player.getCurrentTime() >= stopAt) { player.pauseVideo(); stopAt = null; }
+    }, 50);
+
+    $("#mark-start").onclick = () => mark("start");
+    $("#mark-end").onclick = () => mark("end");
+    $("#replay").onclick = replay;
+    for (const b of document.querySelectorAll("[data-nudge]")) {
+      b.onclick = () => {
+        const [which, by] = b.dataset.nudge.split(":");
+        if (marks[which] == null) return;
+        marks[which] = Math.max(0, Math.round((marks[which] + Number(by)) * 10) / 10);
+        $(`#${which}`).textContent = fmt(marks[which]);
+      };
+    }
+    document.addEventListener("keydown", (e) => {
+      if (e.target.tagName === "INPUT" || e.metaKey || e.ctrlKey) return;
+      const k = e.key.toLowerCase();
+      if (k === "s") mark("start");
+      else if (k === "e") mark("end");
+      else if (k === "r") replay();
+    });
+
+    $("#save").onclick = async () => {
+      if (!current) return say("Choose a video first.", "err");
+      const res = await fetch("/picks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ video: current.video, ...marks, line: $("#line").value, meaning: $("#meaning").value, note: $("#note").value }),
+      });
+      const data = await res.json();
+      if (!res.ok) return say(`Not saved: ${data.error}.`, "err");
+      picks.push(data);
+      resetForm();
+      say("Saved. Find another line in this video, or pick the next one.", "ok");
+      renderPicks(); renderList();
+    };
+
+    (async () => {
+      [candidates, picks] = await Promise.all([fetch("/candidates").then((r) => r.json()).then((d) => d.es), fetch("/picks").then((r) => r.json())]);
+      renderList();
+    })();
+    window.onYouTubeIframeAPIReady = () => {};
+  </script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
