@@ -298,7 +298,7 @@ test.describe("app", () => {
     const today = () => new Date().toLocaleDateString("en-CA");
     const noProgress = () => ({ totalXp: 0, today: { day: today(), xp: 0, goalXp: 30, goalHit: false }, streak: { current: 0, longest: 0 } });
 
-    async function fakeBackend(page, { signupFails = false, events, progress = noProgress, cards = () => [], deleteStatus = 204, assess } = {}) {
+    async function fakeBackend(page, { signupFails = false, events, progress = noProgress, cards = () => [], deleteStatus = 204, assess, speechError } = {}) {
       const calls = { signups: 0, profiles: [], uploads: [], pulls: 0, feedback: [], deletes: [], speech: [] };
       await page.route(`${SUPABASE}/auth/v1/**`, async (route) => {
         if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
@@ -329,6 +329,7 @@ test.describe("app", () => {
           const body = req.postDataJSON();
           calls.speech.push(body);
           // without an `assess` stand-in, answer as the API does with no Azure key
+          if (speechError) return route.fulfill({ headers: cors, ...speechError });
           if (!assess) return route.fulfill({ status: 503, headers: cors, json: {} });
           return route.fulfill({ headers: cors, json: assess(body) });
         }
@@ -455,6 +456,27 @@ test.describe("app", () => {
 
       await page.locator(".clip.active .again").click();
       await mic.click(); // now the phone's own recognition, not the server
+      await page.waitForTimeout(500);
+      expect(calls.speech).toHaveLength(1);
+    });
+
+    test("after today's pronunciation checks run out, uses the phone's recognition", async ({ page }) => {
+      await fakeMic(page);
+      const calls = await fakeBackend(page, { speechError: { status: 429, json: { error: { code: "daily_limit", message: "", requestId: "r" } } } });
+      await page.goto("/app/");
+      await onboard(page);
+      await speakingClip(page);
+
+      const mic = page.locator(".clip.active .mic");
+      await mic.click();
+      await page.waitForTimeout(600);
+      await mic.click();
+      await expect(page.locator(".clip.active .mic-hint")).toContainText("today's pronunciation checks");
+      await expect(page.locator(".clip.active .self-rate")).toBeVisible();
+
+      await page.locator('.clip.active [data-rate="good"]').click();
+      await page.locator(".clip.active .again").click();
+      await mic.click(); // the phone's own recognition now, not the server
       await page.waitForTimeout(500);
       expect(calls.speech).toHaveLength(1);
     });
