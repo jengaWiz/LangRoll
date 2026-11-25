@@ -8,8 +8,10 @@ import { wav } from "./wav.js";
 
 describe("POST /speech/assess", () => {
   const config = loadConfig({ NODE_ENV: "test", DATABASE_URL: "postgres://unused/db", SUPABASE_URL: "http://127.0.0.1:54321" });
-  const db: Db = { query: async () => ({ rows: [], rowCount: 0, command: "SELECT", oid: 0, fields: [] }), transaction: (fn) => fn(db) };
   const learner = "11111111-1111-4111-8111-111111111111";
+  // A learner who exists and has checks left today; the daily cap has its own integration tests.
+  const row = { id: learner, learning_lang: "ja", daily_goal_xp: 30, timezone: "UTC", created_at: new Date(0) };
+  const db: Db = { query: async () => ({ rows: [row] as never[], rowCount: 1, command: "SELECT", oid: 0, fields: [] }), transaction: (fn) => fn(db) };
   const verifyToken = async (token: string) => {
     if (token !== "good") throw Object.assign(new Error("bad token"), { statusCode: 401 });
     return { userId: learner, isAnonymous: true };

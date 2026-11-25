@@ -42,6 +42,9 @@ const Env = z
   // answers 503 and the app uses the phone's own speech recognition.
   AZURE_SPEECH_KEY: z.string().min(1).optional(),
   AZURE_SPEECH_REGION: z.string().regex(/^[a-z0-9]+$/, "must be an Azure region like eastus").default("eastus"),
+  // Pronunciation checks each learner gets per day (UTC). Each one is billed, so this caps the
+  // bill: past it, the app uses the phone's own recognition.
+  SPEECH_DAILY_LIMIT: z.coerce.number().int().min(1).max(500).default(15),
 })
   .refine((env) => env.NODE_ENV !== "production" || env.SUPABASE_URL.startsWith("https://"), {
     path: ["SUPABASE_URL"],
