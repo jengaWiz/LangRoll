@@ -94,6 +94,27 @@ for (const [lang, L] of Object.entries(LANGS)) {
     test("names a speech voice", () => {
       expect(L.speech).toMatch(/^[a-z]{2}-[A-Z]{2}$/);
     });
+
+    test("has units in teaching order, each with a level, a goal and enough clips", () => {
+      const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
+      expect(L.units.length).toBeGreaterThan(0);
+      expect(new Set(L.units.map((u) => u.id)).size).toBe(L.units.length);
+      for (const u of L.units) {
+        expect(u.id, "unit id").toMatch(/^[a-z][a-z-]*$/);
+        expect(LEVELS, `${u.id} level`).toContain(u.level);
+        expect(text(u.title, 40), `${u.id} title`).toBe(true);
+        expect(text(u.goal, 80), `${u.id} goal`).toBe(true);
+        expect(L.clips.filter((c) => c.unit === u.id).length, `${u.id} clips`).toBeGreaterThanOrEqual(3);
+      }
+      // easier units first: a level never drops back
+      const order = L.units.map((u) => LEVELS.indexOf(u.level));
+      expect(order).toEqual([...order].sort((a, b) => a - b));
+    });
+
+    test("puts every clip in one of its units", () => {
+      const units = new Set(L.units.map((u) => u.id));
+      expect(L.clips.filter((c) => !units.has(c.unit)).map((c) => `${c.id} (${c.unit})`)).toEqual([]);
+    });
   });
 }
 
