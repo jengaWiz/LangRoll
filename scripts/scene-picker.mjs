@@ -3,7 +3,7 @@
 // become a clip in apps/web/content.js. Only someone watching can find the line: the videos have no
 // captions we're allowed to read.
 //
-//   npm run scenes        then open http://localhost:8091
+//   npm run scenes        then open http://localhost:8091 (Spanish), or add ?lang=fr or ?lang=ja
 import { createServer } from "node:http";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -13,6 +13,8 @@ const PAGE = here("scene-picker.html");
 const CANDIDATES = here("scene-candidates.json");
 const PICKS = here("scene-picks.json");
 const PORT = Number(process.env.PORT) || 8091;
+// The languages with a candidate list. A pick saved before picks had a language is Spanish.
+const LANGS = ["es", "fr", "ja"];
 
 async function readPicks() {
   try {
@@ -25,6 +27,7 @@ async function readPicks() {
 
 // What a pick needs before it can become a clip; the content tests check the rest.
 function problem(p) {
+  if (p?.lang !== undefined && !LANGS.includes(p.lang)) return `language (one of ${LANGS.join(", ")})`;
   if (!/^[\w-]{11}$/.test(p?.video ?? "")) return "video id";
   if (!(p.start >= 0 && p.end > p.start)) return "the line must end after it starts";
   if (p.end - p.start > 30) return "a line can be at most 30 seconds";
@@ -56,7 +59,7 @@ createServer(async (req, res) => {
       if (why) return send(res, 400, { error: why });
       const picks = await readPicks();
       const pick = {
-        video: p.video, start: Math.round(p.start * 10) / 10, end: Math.round(p.end * 10) / 10,
+        lang: p.lang ?? "es", video: p.video, start: Math.round(p.start * 10) / 10, end: Math.round(p.end * 10) / 10,
         line: p.line.trim(), meaning: String(p.meaning ?? "").trim(), note: String(p.note ?? "").trim(), at: new Date().toISOString(),
       };
       picks.push(pick);
