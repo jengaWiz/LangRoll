@@ -1,4 +1,4 @@
-/* global Sync, clipById, LANGS, state, renderContent, setActive, observer, nextItem, Watch, Recorder, dealScenes, shuffle -- the app's globals, used only inside page.evaluate callbacks */
+/* global Sync, clipById, LANGS, state, renderContent, setActive, observer, nextItem, Watch, Recorder, dealScenes, dealCourse, shuffle -- the app's globals, used only inside page.evaluate callbacks */
 import { expect, test } from "@playwright/test";
 
 // Fail on any JS error, console error, or broken same-origin request.
@@ -120,7 +120,9 @@ test.describe("app", () => {
   test("flip cards show the word before the answer", async ({ page }) => {
     await page.goto("/app/");
     await onboard(page);
-    const card = await scrollToKind(page, "flip");
+    // flips are in a later unit than a new learner's feed starts with, so lay one out directly
+    await layFeed(page, [await page.evaluate(() => LANGS.es.clips.find((c) => c.kind === "flip").id)]);
+    const card = page.locator('#feed .clip.active[data-kind="flip"]');
     const visible = (face) => card.locator(face).evaluate((el) => getComputedStyle(el).visibility);
     expect(await visible(".front")).toBe("visible");
     expect(await visible(".back")).toBe("hidden");
@@ -684,6 +686,65 @@ test.describe("app", () => {
       await expect.poll(() => page.evaluate(() => window.spoken.at(-1))).toBe(c.term);
       expect(await page.evaluate((a) => window.spoken.includes(a), a.term)).toBe(false);
       expect(problems).toEqual([]);
+    });
+  });
+
+  test.describe("course", () => {
+    const UNIT_OF = (page) => page.evaluate(() => Object.fromEntries(LANGS.es.clips.map((c) => [c.id, c.unit])));
+    // Marks every lesson clip in these units as seen, then reloads so the feed deals afresh.
+    const finish = async (page, units) => {
+      await page.evaluate((units) => {
+        const s = JSON.parse(localStorage.getItem("langroll:v1"));
+        s.seen = LANGS.es.clips.filter((c) => units.includes(c.unit)).map((c) => c.id);
+        localStorage.setItem("langroll:v1", JSON.stringify(s));
+      }, units);
+      await page.reload();
+      await expect(page.locator("#feed .clip.active")).toHaveCount(1);
+    };
+
+    test("a new learner starts with the first unit", async ({ page }) => {
+      await page.goto("/app/");
+      await onboard(page);
+      const unitOf = await UNIT_OF(page);
+      const ids = await page.locator("#feed .clip[data-id]").evaluateAll((els) => els.filter((e) => e.dataset.kind !== "watch").map((e) => e.dataset.id));
+      expect(ids.length).toBeGreaterThan(2);
+      expect(ids.map((id) => unitOf[id])).toEqual(ids.map(() => "hello"));
+    });
+
+    test("moves on once a unit is mostly seen, and mixes finished units back in", async ({ page }) => {
+      await page.goto("/app/");
+      await onboard(page);
+      await finish(page, ["hello"]);
+      const units = await page.evaluate(() => dealCourse(LANGS.es.clips).filter((c) => c.kind !== "watch").map((c) => c.unit));
+      expect(units.slice(0, 4)).toEqual(["getting-by", "getting-by", "getting-by", "getting-by"]);
+      expect(units).toContain("hello");
+      expect(units.filter((u) => u === "hello").length).toBeLessThan(units.filter((u) => u === "getting-by").length);
+      expect(new Set(units)).toEqual(new Set(["getting-by", "hello"]));
+    });
+
+    test("shows the learner's unit on their profile", async ({ page }) => {
+      await page.goto("/app/");
+      await onboard(page);
+      await page.locator('#tabbar [data-screen="me"]').click();
+      await expect(page.locator("#me-unit")).toHaveText("Unit 1 of 5 · Hello & introductions");
+      await finish(page, ["hello", "getting-by"]);
+      await page.locator('#tabbar [data-screen="me"]').click();
+      await expect(page.locator("#me-unit")).toHaveText("Unit 3 of 5 · Food & ordering");
+      await finish(page, ["hello", "getting-by", "food", "out", "local"]);
+      await page.locator('#tabbar [data-screen="me"]').click();
+      await expect(page.locator("#me-unit")).toHaveText("Every unit done 🎉");
+    });
+
+    test("a short round takes only the scenes that fit", async ({ page }) => {
+      await page.goto("/app/");
+      await onboard(page);
+      const kinds = await page.evaluate(() => {
+        const scene = LANGS.es.clips.find((c) => c.kind === "watch");
+        const lessons = LANGS.es.clips.filter((c) => c.kind !== "watch").slice(0, 7);
+        return dealScenes([...lessons, scene, { ...scene, id: "es-w98" }, { ...scene, id: "es-w99" }]).map((c) => c.kind);
+      });
+      expect(kinds.filter((k) => k === "watch")).toHaveLength(1);
+      expect(kinds[2]).toBe("watch");
     });
   });
 

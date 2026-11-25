@@ -39,6 +39,8 @@ function defaults() {
     liked: [],
     following: [],
     duels: { played: 0, won: 0 },
+    // clips the learner has come across, so the feed can move on to the next unit
+    seen: [],
     installed: false,
     installSnoozedUntil: 0,
   };
@@ -622,14 +624,56 @@ async function installClick(el, btn) {
 
 // Scenes are the feed's highlight but only a few of the clips, so a plain shuffle could leave one
 // 30 clips down. Each round deals the first scene third (after a lesson or two, by which time
-// there's been a tap and sound can play) and spreads the rest about every six clips.
+// there's been a tap and sound can play) and spreads the rest about every six clips. A short
+// round takes only the scenes that fit; the others come up in later rounds.
 const FIRST_SCENE_AT = 2;
 const SCENE_EVERY = 6;
 function dealScenes(clips) {
   const scenes = clips.filter((c) => c.kind === "watch");
   const rest = clips.filter((c) => c.kind !== "watch");
-  scenes.forEach((scene, i) => rest.splice(Math.min(rest.length, FIRST_SCENE_AT + i * SCENE_EVERY), 0, scene));
+  const fit = Math.max(1, Math.floor((rest.length - FIRST_SCENE_AT) / SCENE_EVERY) + 1);
+  scenes.slice(0, fit).forEach((scene, i) => rest.splice(Math.min(rest.length, FIRST_SCENE_AT + i * SCENE_EVERY), 0, scene));
   return rest;
+}
+
+// The course goes unit by unit: the feed deals the learner's current unit, with a few clips
+// from units they've finished mixed back in. Scenes stay on their own schedule, whatever unit
+// they belong to.
+const UNIT_DONE = 0.8; // a unit is done once most of its clips have been seen
+const REVISIT_EVERY = 4; // one clip from a finished unit after every four from the current one
+
+const hasSeen = (id) => state.seen.includes(id) || Boolean(state.cards[id]);
+
+// The first unit the learner hasn't mostly seen, or null once they've seen the whole course.
+// Scenes don't count: they come on their own schedule, and drop out when YouTube is blocked.
+function currentUnit(L = lang()) {
+  return L.units.find((u) => {
+    const clips = L.clips.filter((c) => c.unit === u.id && c.kind !== "watch");
+    return clips.filter((c) => hasSeen(c.id)).length < UNIT_DONE * clips.length;
+  }) ?? null;
+}
+
+function dealCourse(clips) {
+  const L = lang();
+  const unit = currentUnit(L);
+  // the whole course seen: everything, shuffled
+  if (!unit) return dealScenes(shuffle(clips));
+  const before = new Set(L.units.slice(0, L.units.indexOf(unit)).map((u) => u.id));
+  const scenes = shuffle(clips.filter((c) => c.kind === "watch"));
+  const now = shuffle(clips.filter((c) => c.kind !== "watch" && c.unit === unit.id));
+  const back = shuffle(clips.filter((c) => c.kind !== "watch" && before.has(c.unit)));
+  const round = [];
+  now.forEach((c, i) => {
+    round.push(c);
+    if (i % REVISIT_EVERY === REVISIT_EVERY - 1 && back.length) round.push(back.shift());
+  });
+  return dealScenes([...round, ...scenes]);
+}
+
+function markSeen(id) {
+  if (state.seen.includes(id)) return;
+  state.seen.push(id);
+  persist();
 }
 
 // For-you mixes fresh clips with due reviews and the odd duel.
@@ -653,7 +697,7 @@ function nextItem() {
   let clip = queue.shift();
   while (clip && !playable(clip)) clip = queue.shift();
   if (!clip) {
-    queue = dealScenes(shuffle(lang().clips.filter(playable)));
+    queue = dealCourse(lang().clips.filter(playable));
     clip = queue.shift();
   }
   sinceReview++;
@@ -751,6 +795,8 @@ const onEnter = {
   },
 };
 
+const LESSON_KINDS = new Set(["vocab", "quiz", "speak", "flip", "watch"]);
+
 function setActive(el) {
   if (el === active) return;
   if (active?.dataset.kind === "duel") resetDuel(active);
@@ -760,6 +806,7 @@ function setActive(el) {
   $$(".clip", feedEl).forEach((c) => c.classList.toggle("active", c === el));
   $("#feed-screen").dataset.tone = el.classList.contains("clip-peach") ? "light" : "";
   updateRail();
+  if (el.dataset.id && LESSON_KINDS.has(el.dataset.kind)) markSeen(el.dataset.id);
   onEnter[el.dataset.kind]?.(el);
   Watch.show(el);
 
@@ -1381,6 +1428,10 @@ function renderMe() {
   const L = lang();
   const pct = Math.min(100, Math.round((state.today.xp / state.goal) * 100));
   $("#me-lang").textContent = `${L.flag} ${L.name}`;
+  const unit = currentUnit(L);
+  $("#me-unit").textContent = unit
+    ? `Unit ${L.units.indexOf(unit) + 1} of ${L.units.length} · ${unit.title}`
+    : "Every unit done 🎉";
   $("#goal-ring").style.setProperty("--p", pct);
   $("#goal-ring b").textContent = state.today.xp;
   $("#goal-ring small").textContent = `/ ${state.goal} XP`;
