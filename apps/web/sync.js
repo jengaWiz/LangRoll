@@ -42,7 +42,11 @@ const Sync = (() => {
       headers: { authorization: `Bearer ${s.access_token}`, ...(body && { "content-type": "application/json" }) },
       body: body && JSON.stringify(body),
     });
-    if (!res.ok) throw Object.assign(new Error(`${method} ${path} failed with ${res.status}`), { status: res.status });
+    if (!res.ok) {
+      // the API's error code (e.g. "daily_limit") tells apart failures that share a status
+      const code = await res.json().then((b) => b?.error?.code, () => undefined);
+      throw Object.assign(new Error(`${method} ${path} failed with ${res.status}`), { status: res.status, code });
+    }
     return res.status === 204 ? null : res.json();
   }
 

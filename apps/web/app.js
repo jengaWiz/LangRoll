@@ -1000,12 +1000,15 @@ async function scoreOnServer(el, clip, hint) {
     showWords(el, clip, result.words);
     showScore(el, clip, result.score);
   } catch (err) {
-    if (err.status === 429) {
+    if (err.status === 429 && err.code !== "daily_limit") {
       hint.textContent = "that's a lot of tries! wait a moment, then go again";
       return;
     }
+    // used up today's checks, or the server can't score: the phone's recognition from here on
     serverScoring = false;
-    hint.textContent = "couldn't check that one. how did it sound?";
+    hint.textContent = err.code === "daily_limit"
+      ? "that's today's pronunciation checks. how did it sound?"
+      : "couldn't check that one. how did it sound?";
     $(".self-rate", el).hidden = false;
   } finally {
     el.classList.remove("listening");
