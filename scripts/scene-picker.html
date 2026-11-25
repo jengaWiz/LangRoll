@@ -47,6 +47,7 @@
   <aside>
     <h1>Scene picker</h1>
     <p>Pick a video, find one short line worth learning, and save it. A video can give several lines.</p>
+    <p class="langs" id="langs"></p>
     <div id="list"></div>
   </aside>
   <main>
@@ -67,8 +68,8 @@
         <button class="btn small" data-nudge="end:0.5">+½s</button>
         <button class="btn" id="replay">▶ Play just the line <kbd>R</kbd></button>
       </div>
-      <label for="line">The line, exactly as said, in Spanish</label>
-      <input type="text" id="line" maxlength="85" autocomplete="off" placeholder="¿Qué estamos haciendo?">
+      <label for="line" id="line-label">The line, exactly as said</label>
+      <input type="text" id="line" maxlength="85" autocomplete="off">
       <label for="meaning">What it means in English (optional)</label>
       <input type="text" id="meaning" maxlength="80" autocomplete="off">
       <label for="note">Anything worth knowing (optional): slang, who's speaking, a swear word nearby…</label>
@@ -82,7 +83,23 @@
   </main>
   <script>
     const $ = (s) => document.querySelector(s);
-    const ACCENTS = { mx: "Mexico", latam: "Latin American dub", es: "Spain", co: "Colombia", uy: "Uruguay" };
+    const ACCENTS = { mx: "Mexico", latam: "Latin American dub", es: "Spain", co: "Colombia", uy: "Uruguay", vf: "French dub (France)", ja: "Japanese dub" };
+    // Which language's list to show: ?lang=fr or ?lang=ja, Spanish by default.
+    const LANGS = {
+      es: { name: "Spanish", example: "¿Qué estamos haciendo?" },
+      fr: { name: "French", example: "Qu'est-ce qu'on fait ?" },
+      ja: { name: "Japanese", example: "何してるの？" },
+    };
+    const asked = new URLSearchParams(location.search).get("lang");
+    const LANG = Object.hasOwn(LANGS, asked ?? "") ? asked : "es";
+    $("#line-label").textContent = `The line, exactly as said, in ${LANGS[LANG].name}`;
+    $("#line").placeholder = LANGS[LANG].example;
+    for (const [code, L] of Object.entries(LANGS)) {
+      const a = document.createElement(code === LANG ? "b" : "a");
+      if (code !== LANG) a.href = `?lang=${code}`;
+      a.textContent = L.name;
+      $("#langs").append(a, " ");
+    }
     let candidates = [];
     let picks = [];
     let current = null;
@@ -186,7 +203,7 @@
       const res = await fetch("/picks", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ video: current.video, ...marks, line: $("#line").value, meaning: $("#meaning").value, note: $("#note").value }),
+        body: JSON.stringify({ lang: LANG, video: current.video, ...marks, line: $("#line").value, meaning: $("#meaning").value, note: $("#note").value }),
       });
       const data = await res.json();
       if (!res.ok) return say(`Not saved: ${data.error}.`, "err");
@@ -197,7 +214,7 @@
     };
 
     (async () => {
-      [candidates, picks] = await Promise.all([fetch("/candidates").then((r) => r.json()).then((d) => d.es), fetch("/picks").then((r) => r.json())]);
+      [candidates, picks] = await Promise.all([fetch("/candidates").then((r) => r.json()).then((d) => d[LANG] ?? []), fetch("/picks").then((r) => r.json())]);
       renderList();
     })();
     window.onYouTubeIframeAPIReady = () => {};
